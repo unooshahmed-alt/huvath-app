@@ -55,6 +55,7 @@ Open the site in Chrome (Android) or Safari (iPhone) → menu → **Add to Home 
 
 ## Good to know
 - **Works offline.** If the internet drops, sales are kept on the phone and sent automatically when it comes back. Don't clear the browser data or sign out before it reconnects.
+- **Meter vs sales check.** If the meter readings and the recorded sales differ by more than the tolerance (0.5 L, change it in Station settings), every page shows a red warning, and the daily report, PDF and Excel mark it in red. Closing the day is still allowed. When it's closed, the owner gets an email with the figures and any explanation. The emails are sent through the free FormSubmit service (formsubmit.co). **The very first time, FormSubmit sends unooshahmed@gmail.com an "Activate form" email. Click the link once,** or later alerts won't arrive.
 - **Slip checking** reads the slip text on the phone itself (free, no account needed). The first check downloads the reader (a few MB). It works best on clear, straight, well-lit photos and screenshots. It checks that the station's account number and the amount appear on the slip. It does not confirm the payment with the bank. Anything unclear is marked **Needs review** for a manager or accountant to approve by hand.
 - **Free limits.** Firebase's free plan allows 50,000 reads and 20,000 writes per day and 1 GB of storage. Slip photos are compressed (~150 KB), so the free plan holds several thousand slips.
 - To change the owner email, edit it in both `firebase-config.js` and `firestore.rules` (and publish the rules again).

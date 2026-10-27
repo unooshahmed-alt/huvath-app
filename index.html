@@ -165,6 +165,9 @@ tr.sec td{background:var(--accent-soft);color:var(--accent);font-weight:700;lett
 tr.sub td{font-weight:600;background:var(--surface-2)}
 tr.meterrow td{font-style:italic;color:var(--muted)}
 tr.tot td{font-weight:700;border-top:2px solid var(--ink);background:var(--surface-2)}
+tr.bad td,td.bad{background:var(--bad-soft);color:var(--bad);font-weight:700;font-style:normal}
+.alarm{border-radius:var(--r);padding:12px 14px;background:var(--bad-soft);color:var(--ink);border:2px solid var(--bad);display:flex;flex-direction:column;gap:6px}
+.alarm b.t{color:var(--bad);font-family:var(--display);font-size:1.15rem;letter-spacing:.02em}
 .rep-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 14px 10px}
 .rep-head b{font-family:var(--display);font-size:1.4rem}
 .denoms{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
@@ -368,7 +371,8 @@ function buildDaily({date, items, day, slips, settings, prevDay}) {
       T.cash += g.amt; if (!isT) T.tcash += g.amt; else transfers += g.amt; rec[f] += g.qty; recAmt[f] += g.amt;
     }
     const ms = meterSale[f]; const diff = ms == null ? null : r3(ms - rec[f]);
-    rows.push({kind: "meter", name: FUEL[f] + " meter total", qty: ms, remark: ms == null ? "Meter reading not entered" : `Recorded ${nL(rec[f])} L · difference ${diff > 0 ? "+" : ""}${nL(diff)} L`});
+    const off = diff != null && Math.abs(diff) > (settings.meterTolerance ?? 0.5);
+    rows.push({kind: "meter", bad: off, name: FUEL[f] + " meter total", qty: ms, remark: ms == null ? "Meter reading not entered" : off ? `MISMATCH: recorded ${nL(rec[f])} L, ${diff > 0 ? nL(diff) + " L not recorded" : nL(-diff) + " L over-recorded"}` : `Recorded ${nL(rec[f])} L · matches meter`});
   }
   rows.push({kind: "sec", name: "OTHER COLLECTION"});
   const colls = live.filter(i => i.t === "collect"); const others = live.filter(i => i.t === "other");
@@ -412,7 +416,10 @@ function buildDaily({date, items, day, slips, settings, prevDay}) {
       recorded: r3(rec[f]), meter: ms, diff, value: diff == null ? null : r2(diff * (settings.prices[f] || 0)),
       status: diff == null ? "pending" : Math.abs(diff) <= tol ? "ok" : "off"};
   });
-  return {date, settings, rows, T, rec, recAmt, meters, meterSale, meterCheck, tanks, expenses, expTotal, deposits, transfers: r2(transfers), transferSlips,
+  const meterAlerts = meterCheck.filter(c => c.status === "off").map(c => ({...c, text: c.diff > 0
+    ? `${FUEL[c.fuel]} meter shows ${nL(c.meter)} L sold, but the sales sheet has only ${nL(c.recorded)} L. ${nL(c.diff)} L (about MVR ${n2(c.value)}) is missing from the sales sheet.`
+    : `${FUEL[c.fuel]}: the sales sheet has ${nL(c.recorded)} L, but the meter shows only ${nL(c.meter)} L sold. ${nL(-c.diff)} L too many recorded. Check for double entries or a wrong meter reading.`}));
+  return {date, settings, rows, T, rec, recAmt, meters, meterSale, meterCheck, meterAlerts, mismatchNote: day.mismatchNote || "", tanks, expenses, expTotal, deposits, transfers: r2(transfers), transferSlips,
     denoms, coins, notesTotal, cheques, chequeTotal, counted, expected, cashDiff: r2(counted - expected), cashCounted: counted > 0,
     slips, notes: day.notes || "", closed: !!day.closed, closedBy: day.closedBy, items: live, count: live.length};
 }
@@ -538,8 +545,54 @@ function renderAll() {
   main.innerHTML = v(); refreshLive(); syncBinds(); refreshCustomerSelects();
   window.scrollTo(0, 0);
 }
+LIVE.meterAlert = () => {
+  const m = model(); if (!m.meterAlerts.length) return "";
+  return `<div class="alarm" role="alert"><b class="t">⚠ Meter and sales don't match</b>${m.meterAlerts.map(a => `<div>${esc(a.text)}</div>`).join("")}
+    ${m.mismatchNote ? `<div class="small"><b>Explanation:</b> ${esc(m.mismatchNote)}</div>` : `<div class="small muted">Find the missing sale and record it, or correct the meter reading.${can("day") ? ` <button class="btn sm" data-tab="day">Check readings</button>` : ""}</div>`}
+    <div class="row small">${alertSentFor(m) ? `<span class="pill good">Owner emailed ${hm(S.day.ownerAlert.at)}</span>` : `<span class="muted">The owner is emailed automatically when the day is closed.</span>`}${can("day") && !alertSentFor(m) ? `<button class="btn sm" data-act="emailOwner">Email owner now</button>` : ""}</div></div>`;
+};
+/* one email per distinct mismatch: the signature changes if the numbers change */
+const alertSig = m => m.meterAlerts.map(a => a.fuel + ":" + a.diff).join("|");
+const alertSentFor = m => !!(S.day.ownerAlert && S.day.ownerAlert.sig === alertSig(m));
+async function emailOwnerAlert(m, note) {
+  const owner = window.HUVATH_OWNER_EMAIL; if (!owner || !m.meterAlerts.length) return false;
+  const s = st();
+  const body = {
+    _subject: `⚠ ${s.station}: meter and sales don't match on ${dmy(m.date)}`,
+    _template: "table", _captcha: "false",
+    Station: s.station, Date: dmy(m.date),
+    Problem: m.meterAlerts.map(a => a.text).join("\n"),
+    ...Object.fromEntries(m.meterCheck.map(c => [FUEL[c.fuel] + " (meter / recorded / difference L)", `${c.meter == null ? "-" : nL(c.meter)} / ${nL(c.recorded)} / ${c.diff == null ? "-" : nL(c.diff)}`])),
+    "Cash expected / counted": `MVR ${n2(m.expected)} / ${m.cashCounted ? "MVR " + n2(m.counted) : "not counted"}`,
+    Explanation: note || m.mismatchNote || "(none given)",
+    "Reported by": nameOf(S.me.id) + (S.me.email ? " (" + S.me.email + ")" : ""),
+    Open: location.origin + location.pathname
+  };
+  try {
+    const r = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(owner), {method: "POST", headers: {"Content-Type": "application/json", Accept: "application/json"}, body: JSON.stringify(body)});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || String(j.success) === "false") throw new Error(j.message || r.status);
+    await patchDay({ownerAlert: {at: new Date().toISOString(), by: S.me.id, sig: alertSig(m)}});
+    toast("Owner emailed about the mismatch"); return true;
+  } catch (e) { console.error(e); toast("Couldn't email the owner (no internet?). Try Email owner now later."); return false; }
+}
+function openCloseSheet() {
+  const m = model();
+  openSheet(`<form class="stack" id="clForm"><div class="row between"><h3>Close ${dmy(S.date)}</h3><button type="button" class="btn sm" data-close>Cancel</button></div>
+    <div class="alarm"><b class="t">⚠ Meter and sales don't match</b>${m.meterAlerts.map(a => `<div>${esc(a.text)}</div>`).join("")}</div>
+    <p class="small" style="margin:0">You can still close the day. The owner will get an email with these figures.</p>
+    <label class="f">Explanation (optional)<textarea class="in" id="clNote" maxlength="300" placeholder="e.g. 2 L given to generator, not billed">${esc(m.mismatchNote)}</textarea></label>
+    <button class="btn pri block">Close day and email owner</button></form>`, sheet => {
+    sheet.querySelector("#clForm").addEventListener("submit", async ev => {
+      ev.preventDefault(); const note = sheet.querySelector("#clNote").value.trim(); const btn = sheet.querySelector("button.block"); btn.disabled = true;
+      await patchDay({closed: true, closedBy: S.me.id, closedAt: new Date().toISOString(), mismatchNote: note});
+      closeSheet(); toast("Day closed"); setTimeout(renderAll, 300);
+      if (!alertSentFor(m) || note !== m.mismatchNote) emailOwnerAlert(m, note);
+    });
+  });
+}
 function dayBanner() {
-  const parts = [];
+  const parts = [`<div data-live="meterAlert"></div>`];
   if (S.day.closed) parts.push(`<div class="banner good">Day closed by ${esc(nameOf(S.day.closedBy))}. ${can("editAny") ? "Managers can still make corrections." : "Ask a manager if something needs fixing."}</div>`);
   if (S.date !== todayStr()) parts.push(`<div class="banner warn">You are viewing <b>${dmy(S.date)}</b>, not today.</div>`);
   return parts.join("");
@@ -933,7 +986,7 @@ function viewReports() {
   const m = S.reportMode;
   const seg = [["daily", "Daily report"], ["range", "Date range"], ["statement", "Customer statement"], ["log", "Changes log"]];
   let body = "";
-  if (m === "daily") body = `<div class="row"><button class="btn pri" data-act="dlDaily" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlDaily" data-f="xlsx">Download Excel</button><span class="small muted">Same layout as your daily sales sheet.</span></div><div data-live="dailyReport"></div>`;
+  if (m === "daily") body = `<div data-live="meterAlert"></div><div class="row"><button class="btn pri" data-act="dlDaily" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlDaily" data-f="xlsx">Download Excel</button><span class="small muted">Same layout as your daily sales sheet.</span></div><div data-live="dailyReport"></div>`;
   if (m === "range") body = `<form class="card row" data-form="range"><label class="f">From<input class="in" type="date" id="rgFrom" value="${S.sub.rgFrom || S.date.slice(0, 8) + "01"}" required></label><label class="f">To<input class="in" type="date" id="rgTo" value="${S.sub.rgTo || S.date}" required></label><button class="btn pri" style="align-self:flex-end">Show</button></form><div id="rangeOut">${S.sub.rangeHtml || ""}</div>`;
   if (m === "statement") body = `<form class="card row" data-form="statement"><label class="f" style="flex:2">Customer${custPicker("stCust", S.sub.stCust)}</label><label class="f">From<input class="in" type="date" id="stFrom" value="${S.sub.stFrom || S.date.slice(0, 8) + "01"}" required></label><label class="f">To<input class="in" type="date" id="stTo" value="${S.sub.stTo || S.date}" required></label><button class="btn pri" style="align-self:flex-end">Show</button></form><div id="stOut">${S.sub.stHtml || ""}</div>`;
   if (m === "log") body = `<div class="card"><h3>Edited and deleted entries · ${dmy(S.date)}</h3><div class="list" data-live="changeLog"></div></div>`;
@@ -945,13 +998,13 @@ function dailyHtml(m) {
   const s = m.settings;
   const rows = m.rows.map(r => {
     if (r.kind === "sec") return `<tr class="sec"><td colspan="10">${esc(r.name)}</td></tr>`;
-    const cls = {sub: "sub", meter: "meterrow", total: "tot", cash: "sub"}[r.kind] || "";
+    const cls = r.bad ? "bad" : {sub: "sub", meter: "meterrow", total: "tot", cash: "sub"}[r.kind] || "";
     return `<tr class="${cls}">${cell(r.po)}${cell(r.dno)}${cell(r.name)}${cell(r.qty, "L")}${cell(r.rate, 1)}${cell(r.cash, 1)}${cell(r.credit, 1)}${cell(r.coll, 1)}${cell(r.tcash, 1)}${cell(r.remark)}</tr>`;
   }).join("");
   const mt = m.meters.map(x => `<tr><td>${esc(x.name)}</td><td class="n">${nR(x.start)}</td><td class="n">${nR(x.end)}</td><td class="n">${x.sale == null ? "" : nR(x.sale)}</td></tr>`).join("");
   const tk = m.tanks.map(t => `<tr><td>${esc(t.name)}</td><td>${FUEL[t.fuel]}</td><td class="n">${nR(t.sounding)}</td><td class="n">${nR(t.bf)}</td><td class="n">${nR(t.cb)}</td><td class="n">${nR(t.loaded)}</td><td class="n">${nR(t.usage)}</td></tr>`).join("");
   const ex = m.expenses.map(e => `<tr><td>${esc(e.desc)}</td><td class="n">${n2(e.amount)}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">None</td></tr>`;
-  const mc = m.meterCheck.map(c => `<tr><td>${FUEL[c.fuel]}</td><td class="n">${nR(c.start)}</td><td class="n">${nR(c.recorded)}</td><td class="n">${c.start == null ? "" : nR(r3(c.start + c.recorded))}</td><td class="n">${nR(c.end)}</td><td class="n">${c.diff == null ? "" : nR(c.diff)}</td></tr>`).join("");
+  const mc = m.meterCheck.map(c => `<tr class="${c.status === "off" ? "bad" : ""}"><td>${FUEL[c.fuel]}</td><td class="n">${nR(c.start)}</td><td class="n">${nR(c.recorded)}</td><td class="n">${c.start == null ? "" : nR(r3(c.start + c.recorded))}</td><td class="n">${nR(c.end)}</td><td class="n">${c.diff == null ? "" : nR(c.diff)}</td><td>${c.status === "off" ? "MISMATCH" : c.status === "ok" ? "OK" : "No reading"}</td></tr>`).join("");
   return `<div class="card" style="padding:0;overflow:hidden">
     <div class="rep-head"><div><b>${esc(s.station)}</b><div class="small muted">${esc(s.address1)}<br>${esc(s.address2)}</div></div><div style="text-align:right"><b>Daily Sales Report</b><div class="mono">${dmy(m.date)}</div></div></div>
     <div class="tw" style="border-radius:0;border-left:0;border-right:0"><table><thead><tr><th>PO No.</th><th>D/No.</th><th>Customer name</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Cash sales</th><th class="n">Credit sales</th><th class="n">Credit collection</th><th class="n">Total cash</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -966,8 +1019,9 @@ function dailyHtml(m) {
           <tr><td>Total cash</td><td class="n">${n2(m.T.tcash)}</td></tr><tr><td>Expenses</td><td class="n">${n2(m.expTotal)}</td></tr><tr><td>Bank deposit</td><td class="n">${n2(m.deposits)}</td></tr>
           <tr><td>Bank transfers received</td><td class="n">${n2(m.transfers)}</td></tr><tr class="sub"><td>Cash at hand (expected)</td><td class="n">${n2(m.expected)}</td></tr>
           <tr><td>Cash &amp; cheque counted</td><td class="n">${m.cashCounted ? n2(m.counted) : "—"}</td></tr><tr class="tot"><td>Difference</td><td class="n">${m.cashCounted ? n2(m.cashDiff) : "—"}</td></tr></tbody></table></div>
-        <div class="tw"><table><thead><tr><th>Meter check</th><th class="n">B/F</th><th class="n">Today's sales</th><th class="n">C/B</th><th class="n">Actual</th><th class="n">Diff.</th></tr></thead><tbody>${mc}</tbody></table></div>
+        <div class="tw"><table><thead><tr><th>Meter check</th><th class="n">B/F</th><th class="n">Today's sales</th><th class="n">C/B</th><th class="n">Actual</th><th class="n">Diff.</th><th>Status</th></tr></thead><tbody>${mc}</tbody></table></div>
       </div>
+      ${m.meterAlerts.length ? `<div class="alarm"><b class="t">⚠ Meter and sales don't match</b>${m.meterAlerts.map(a => `<div>${esc(a.text)}</div>`).join("")}${m.mismatchNote ? `<div class="small"><b>Explanation:</b> ${esc(m.mismatchNote)}</div>` : ""}</div>` : ""}
       ${m.notes ? `<div class="banner"><b>Notes:</b> ${esc(m.notes)}</div>` : ""}
     </div></div>`;
 }
@@ -996,8 +1050,8 @@ async function fetchRange(from, to) {
   return days;
 }
 function rangeModel(days, from, to) {
-  const cols = ["Date", "Petrol L", "Diesel L", "Petrol meter L", "Diesel meter L", "Cash sales", "Credit sales", "Collections", "Total cash", "Expenses", "Bank deposit", "Expected cash", "Counted", "Difference"];
-  const rows = days.map(m => [dmy(m.date), r3(m.rec.petrol), r3(m.rec.diesel), m.meterSale.petrol, m.meterSale.diesel, m.T.cash, m.T.credit, m.T.coll, m.T.tcash, m.expTotal, m.deposits, m.expected, m.cashCounted ? m.counted : null, m.cashCounted ? m.cashDiff : null]);
+  const cols = ["Date", "Petrol L", "Diesel L", "Petrol meter L", "Diesel meter L", "Petrol diff L", "Diesel diff L", "Cash sales", "Credit sales", "Collections", "Total cash", "Expenses", "Bank deposit", "Expected cash", "Counted", "Difference"];
+  const rows = days.map(m => [dmy(m.date), r3(m.rec.petrol), r3(m.rec.diesel), m.meterSale.petrol, m.meterSale.diesel, m.meterCheck[0].diff, m.meterCheck[1].diff, m.T.cash, m.T.credit, m.T.coll, m.T.tcash, m.expTotal, m.deposits, m.expected, m.cashCounted ? m.counted : null, m.cashCounted ? m.cashDiff : null]);
   const tot = ["TOTAL"]; for (let c = 1; c < cols.length; c++) tot.push(r2(rows.reduce((s, r) => s + (num(r[c])), 0)));
   const cust = {};
   for (const m of days) for (const i of m.items) {
@@ -1006,11 +1060,14 @@ function rangeModel(days, from, to) {
     if (i.t === "credit") { c[i.fuel] += i.qty; c.credit += i.amount; } else c.paid += i.amount;
   }
   const custRows = Object.values(cust).sort((a, b) => a.name.localeCompare(b.name)).map(c => [c.name, r3(c.petrol), r3(c.diesel), r2(c.credit), r2(c.paid), r2(c.credit - c.paid)]);
-  return {from, to, cols, rows, tot, custCols: ["Customer", "Petrol L", "Diesel L", "Credit sales", "Payments", "Net"], custRows};
+  return {from, to, days, cols, rows, tot, custCols: ["Customer", "Petrol L", "Diesel L", "Credit sales", "Payments", "Net"], custRows};
 }
+const isBadCell = (cols, i, v) => /diff L/.test(String(cols[i])) && v != null && Math.abs(num(v)) > (st().meterTolerance ?? 0.5);
 function rangeHtml(R) {
-  const t = (cols, rows, tot) => `<div class="tw"><table><thead><tr>${cols.map((c, i) => `<th class="${i ? "n" : ""}">${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((v, i) => i ? `<td class="n">${v == null ? "" : String(cols[i]).includes(" L") ? nR(v) : n2(v)}</td>` : `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}${tot ? `<tr class="tot">${tot.map((v, i) => i ? `<td class="n">${String(cols[i]).includes(" L") ? nR(v) : n2(v)}</td>` : `<td>${v}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
+  const bad = R.days ? R.days.filter(m => m.meterAlerts.length) : [];
+  const t = (cols, rows, tot) => `<div class="tw"><table><thead><tr>${cols.map((c, i) => `<th class="${i ? "n" : ""}">${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((v, i) => i ? `<td class="n${isBadCell(cols, i, v) ? " bad" : ""}">${v == null ? "" : String(cols[i]).includes(" L") ? nR(v) : n2(v)}</td>` : `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}${tot ? `<tr class="tot">${tot.map((v, i) => i ? `<td class="n">${String(cols[i]).includes(" L") ? nR(v) : n2(v)}</td>` : `<td>${v}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
   return `<div class="stack"><div class="row"><button class="btn pri" data-act="dlRange" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlRange" data-f="xlsx">Download Excel</button></div>
+    ${bad.length ? `<div class="alarm" role="alert"><b class="t">⚠ ${bad.length} day${bad.length > 1 ? "s" : ""} where meter and sales don't match</b>${bad.map(m => `<div><b>${dmy(m.date)}:</b> ${m.meterAlerts.map(a => esc(a.text)).join(" ")}${m.mismatchNote ? ` <i>Explanation: ${esc(m.mismatchNote)}</i>` : ""}</div>`).join("")}</div>` : ""}
     <div class="card stack"><h3>Daily totals · ${dmy(R.from)} to ${dmy(R.to)}</h3>${R.rows.length ? t(R.cols, R.rows, R.tot) : `<div class="empty">No records in this period.</div>`}</div>
     <div class="card stack"><h3>Credit customers</h3>${R.custRows.length ? t(R.custCols, R.custRows) : `<div class="empty">No credit activity.</div>`}</div></div>`;
 }
@@ -1054,13 +1111,13 @@ function pdfFooter(doc) {
   const n = doc.getNumberOfPages();
   for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120); doc.text(`Generated ${new Date().toLocaleString()} · ${nameOf(S.me.id)}`, 36, 820); doc.text(`Page ${i} of ${n}`, 559, 820, {align: "right"}); doc.setTextColor(0); }
 }
-const TEAL = [11, 110, 99], TINT = [220, 239, 235], GREY = [242, 245, 244];
+const TEAL = [11, 110, 99], TINT = [220, 239, 235], GREY = [242, 245, 244], RED = [184, 50, 38], RED_SOFT = [248, 223, 220];
 const fmtL = v => v == null || v === "" ? "" : nR(v); const fmtM = v => v == null || v === "" ? "" : n2(v);
 function dailyPdf(m) {
   const doc = pdfDoc("Daily Sales Report", dmy(m.date));
   const body = m.rows.map(r => {
     if (r.kind === "sec") return [{content: r.name, colSpan: 10, styles: {fillColor: TINT, textColor: TEAL, fontStyle: "bold"}}];
-    const st2 = r.kind === "total" ? {fontStyle: "bold", fillColor: [225, 230, 228]} : r.kind === "meter" ? {fontStyle: "italic", textColor: 90} : (r.kind === "sub" || r.kind === "cash") ? {fontStyle: "bold", fillColor: GREY} : {};
+    const st2 = r.bad ? {fontStyle: "bold", fillColor: RED_SOFT, textColor: RED} : r.kind === "total" ? {fontStyle: "bold", fillColor: [225, 230, 228]} : r.kind === "meter" ? {fontStyle: "italic", textColor: 90} : (r.kind === "sub" || r.kind === "cash") ? {fontStyle: "bold", fillColor: GREY} : {};
     return [r.po || "", r.dno || "", r.name || "", fmtL(r.qty), fmtM(r.rate), fmtM(r.cash), fmtM(r.credit), fmtM(r.coll), fmtM(r.tcash), r.remark || ""].map(c => ({content: c, styles: st2}));
   });
   const R = {halign: "right"};
@@ -1068,6 +1125,14 @@ function dailyPdf(m) {
     styles: {fontSize: 7.2, cellPadding: 2.5, lineColor: [210, 218, 215], lineWidth: .4}, headStyles: {fillColor: TEAL, fontSize: 7}, theme: "grid", margin: {left: 36, right: 36},
     columnStyles: {0: {cellWidth: 38}, 1: {cellWidth: 34}, 2: {cellWidth: 92}, 3: R, 4: R, 5: R, 6: R, 7: R, 8: R, 9: {cellWidth: 92}}});
   let y = doc.lastAutoTable.finalY + 14;
+  if (m.meterAlerts.length) {
+    const lines = ["METER AND SALES DON'T MATCH", ...m.meterAlerts.map(a => a.text), ...(m.mismatchNote ? ["Explanation: " + m.mismatchNote] : [])].flatMap(t => doc.splitTextToSize(t, 510));
+    const h = lines.length * 11 + 12;
+    doc.setFillColor(...RED_SOFT); doc.setDrawColor(...RED); doc.setLineWidth(1.2); doc.rect(36, y, 523, h, "FD");
+    doc.setTextColor(...RED); doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text(lines[0], 44, y + 14);
+    doc.setFont("helvetica", "normal"); doc.setTextColor(30); doc.setFontSize(8); doc.text(lines.slice(1), 44, y + 26);
+    doc.setTextColor(0); y += h + 12;
+  }
   const half = (cfgL, cfgR) => {
     doc.autoTable({...cfgL, startY: y, margin: {left: 36}, tableWidth: 255, theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}}); const a = doc.lastAutoTable.finalY;
     doc.autoTable({...cfgR, startY: y, margin: {left: 304}, tableWidth: 255, theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}}); const b = doc.lastAutoTable.finalY;
@@ -1080,7 +1145,7 @@ function dailyPdf(m) {
   y = doc.lastAutoTable.finalY + 12;
   half({head: [["Cash summary", "MVR"]], body: [["Total cash", n2(m.T.tcash)], ["Expenses", n2(m.expTotal)], ["Bank deposit", n2(m.deposits)], ["Bank transfers received", n2(m.transfers)], ["Cash at hand (expected)", n2(m.expected)], ["Cash & cheque counted", m.cashCounted ? n2(m.counted) : "-"], [{content: "Difference", styles: {fontStyle: "bold"}}, {content: m.cashCounted ? n2(m.cashDiff) : "-", styles: {fontStyle: "bold"}}]], columnStyles: {1: R}},
     {head: [["Denomination", "Count", "Amount"]], body: [...m.denoms.map(d => [String(d.d), d.n ? String(d.n) : "", d.v ? n2(d.v) : ""]), ["Coins", "", m.coins ? n2(m.coins) : ""], ...m.cheques.map(c => ["Cheque " + c.no, "", n2(c.amount)]), [{content: "Cash & cheque total", colSpan: 2, styles: {fontStyle: "bold"}}, {content: n2(m.counted), styles: {fontStyle: "bold"}}]], columnStyles: {1: R, 2: R}});
-  doc.autoTable({startY: y, head: [["Meter check", "Reading B/F", "Today's sales", "C/B", "Actual reading", "Difference"]], body: m.meterCheck.map(c => [FUEL[c.fuel], fmtL(c.start), fmtL(c.recorded), c.start == null ? "" : fmtL(r3(c.start + c.recorded)), fmtL(c.end), fmtL(c.diff)]),
+  doc.autoTable({startY: y, head: [["Meter check", "Reading B/F", "Today's sales", "C/B", "Actual reading", "Difference", "Status"]], body: m.meterCheck.map(c => { const st3 = c.status === "off" ? {fontStyle: "bold", fillColor: RED_SOFT, textColor: RED} : {}; return [FUEL[c.fuel], fmtL(c.start), fmtL(c.recorded), c.start == null ? "" : fmtL(r3(c.start + c.recorded)), fmtL(c.end), fmtL(c.diff), c.status === "off" ? "MISMATCH" : c.status === "ok" ? "OK" : "No reading"].map(v => ({content: v, styles: st3})); }),
     theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {1: R, 2: R, 3: R, 4: R, 5: R}});
   y = doc.lastAutoTable.finalY + 12;
   if (m.slips.length) {
@@ -1097,7 +1162,8 @@ function tablePdf(title, sub, sections) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(sc.title, 36, y + 6); y += 12;
     doc.autoTable({startY: y, head: [sc.cols], body: sc.rows.map(r => r.map((v, i) => i === 0 || sc.text?.includes(i) ? (v ?? "") : (v == null ? "" : String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)))), foot: sc.tot ? [sc.tot.map((v, i) => i ? (String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)) : v)] : undefined,
       theme: "grid", styles: {fontSize: sc.cols.length > 10 ? 6 : 7.5, cellPadding: 2}, headStyles: {fillColor: TEAL, fontSize: sc.cols.length > 10 ? 5.8 : 7.5}, footStyles: {fillColor: [225, 230, 228], textColor: 20}, margin: {left: 36, right: 36},
-      columnStyles: Object.fromEntries(sc.cols.map((c, i) => [i, i === 0 || sc.text?.includes(i) ? {} : {halign: "right"}]))});
+      columnStyles: Object.fromEntries(sc.cols.map((c, i) => [i, i === 0 || sc.text?.includes(i) ? {} : {halign: "right"}])),
+      didParseCell: d => { if (d.section === "body" && isBadCell(sc.cols, d.column.index, sc.rows[d.row.index] && sc.rows[d.row.index][d.column.index])) { d.cell.styles.fillColor = RED_SOFT; d.cell.styles.textColor = RED; d.cell.styles.fontStyle = "bold"; } }});
     y = doc.lastAutoTable.finalY + 18;
   }
   pdfFooter(doc); return doc.output("blob");
@@ -1123,6 +1189,7 @@ function xTable(ws, r0, c0, head, rows, opts = {}) {
       if (kind === "sub" || kind === "cash") { c.fill = XFILL("FFF2F5F4"); c.font = {bold: true}; }
       if (kind === "meter") c.font = {italic: true, color: {argb: "FF5A6B66"}};
       if (kind === "total") { c.fill = XFILL("FFE1E6E4"); c.font = {bold: true}; }
+      if (kind === "bad" || (opts.badCell && opts.badCell(ri, i, v))) { c.fill = XFILL("FFF8DFDC"); c.font = {bold: true, color: {argb: "FFB83226"}}; }
     });
   });
   return r0 + rows.length + 1;
@@ -1131,8 +1198,9 @@ async function dailyXlsx(m) {
   const wb = xlsxBook(); const ws = wb.addWorksheet("Main", {pageSetup: {paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0}});
   ws.columns = [10, 10, 30, 11, 9, 13, 13, 13, 13, 30].map(w => ({width: w}));
   xHeader(ws, "Daily Sales Report", dmy(m.date), "J");
+  if (m.meterAlerts.length) { const a4 = ws.getCell("C4"); a4.value = "⚠ METER AND SALES DON'T MATCH: " + m.meterAlerts.map(a => a.text).join("  ") + (m.mismatchNote ? "  Explanation: " + m.mismatchNote : ""); a4.font = {bold: true, color: {argb: "FFB83226"}}; }
   const first = 6; let r = first;
-  const rows = m.rows.map(x => x.kind === "sec" ? {kind: "sec", v: [x.name, "", "", "", "", "", "", "", "", ""]} : {kind: x.kind, v: [x.po || "", x.dno || "", x.name || "", x.qty ?? "", x.rate ?? "", x.cash ?? "", x.credit ?? "", x.coll ?? "", x.tcash ?? "", x.remark || ""]});
+  const rows = m.rows.map(x => x.kind === "sec" ? {kind: "sec", v: [x.name, "", "", "", "", "", "", "", "", ""]} : {kind: x.bad ? "bad" : x.kind, v: [x.po || "", x.dno || "", x.name || "", x.qty ?? "", x.rate ?? "", x.cash ?? "", x.credit ?? "", x.coll ?? "", x.tcash ?? "", x.remark || ""]});
   // live formulas: credit lines = qty × rate, total row = SUM of item/cash rows
   const end = xTable(ws, 5, 1, ["PO NO.", "D/No.", "Customer Name", "Qty", "Rate", "Cash Sales", "Credit Sales", "Credit Collection", "Total Cash", "Remarks"], rows, {litreCols: [3]});
   const totalRow = end - 1; const sumRows = [];
@@ -1147,7 +1215,7 @@ async function dailyXlsx(m) {
   r = Math.max(r1, r2_) + 1;
   r = xTable(ws, r, 1, ["Tank No.", "", "Fuel", "Start Sounding", "Bal. B/F", "Bal. C/B", "Qty Loaded", "Used"], m.tanks.map(t => [t.name, "", FUEL[t.fuel], t.sounding ?? "", t.bf ?? "", t.cb ?? "", t.loaded ?? "", t.usage ?? ""]), {litreCols: [3, 4, 5, 6, 7]}) + 1;
   const c1 = xTable(ws, r, 1, ["Cash summary", "", "", "MVR"], [["Total cash", "", "", m.T.tcash], ["Expenses", "", "", m.expTotal], ["Bank deposit", "", "", m.deposits], ["Bank transfers received", "", "", m.transfers], {kind: "sub", v: ["Cash at hand (expected)", "", "", m.expected]}, ["Cash & cheque counted", "", "", m.cashCounted ? m.counted : ""], {kind: "total", v: ["Difference", "", "", m.cashCounted ? m.cashDiff : ""]}]);
-  const c2 = xTable(ws, r, 6, ["Meter check", "B/F", "Today's sales", "C/B", "Actual"], m.meterCheck.map(c => [FUEL[c.fuel], c.start ?? "", c.recorded, c.start == null ? "" : r3(c.start + c.recorded), c.end ?? ""]), {litreCols: [1, 2, 3, 4]});
+  const c2 = xTable(ws, r, 6, ["Meter check", "B/F", "Today's sales", "C/B", "Actual"], m.meterCheck.map(c => ({kind: c.status === "off" ? "bad" : "", v: [FUEL[c.fuel] + (c.status === "off" ? " (MISMATCH " + (c.diff > 0 ? "+" : "") + nL(c.diff) + " L)" : ""), c.start ?? "", c.recorded, c.start == null ? "" : r3(c.start + c.recorded), c.end ?? ""]})), {litreCols: [1, 2, 3, 4]});
   r = Math.max(c1, c2) + 1;
   if (m.notes) { ws.getCell("A" + r).value = "Notes: " + m.notes; }
   // sheet 2: cash count
@@ -1171,7 +1239,7 @@ async function tableXlsx(title, sub, sections) {
     const ws = wb.addWorksheet(sc.sheet); ws.columns = sc.cols.map((c, i) => ({width: i === 0 ? 24 : Math.max(12, c.length + 2)}));
     xHeader(ws, title, sub, String.fromCharCode(64 + Math.min(sc.cols.length, 26)));
     const lit = sc.cols.map((c, i) => String(c).includes(" L") ? i : -1).filter(i => i >= 0);
-    xTable(ws, 5, 1, sc.cols, [...sc.rows.map(r => r.map(v => v == null ? "" : v)), ...(sc.tot ? [{kind: "total", v: sc.tot}] : [])], {litreCols: lit});
+    xTable(ws, 5, 1, sc.cols, [...sc.rows.map(r => r.map(v => v == null ? "" : v)), ...(sc.tot ? [{kind: "total", v: sc.tot}] : [])], {litreCols: lit, badCell: (ri, ci, v) => isBadCell(sc.cols, ci, v)});
   }
   return new Blob([await wb.xlsx.writeBuffer()], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
 }
@@ -1250,6 +1318,7 @@ document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const act = b.dataset.act, v = b.dataset.v, id = b.dataset.id;
   switch (act) {
+    case "emailOwner": { b.disabled = true; b.textContent = "Sending…"; const ok = await emailOwnerAlert(model(), ""); b.disabled = false; b.textContent = ok ? "Sent" : "Email owner now"; break; }
     case "authMode": showLogin(v); break;
     case "signOut": S.auth && S.auth.signOut(); break;
     case "forgot": {
@@ -1287,6 +1356,7 @@ document.addEventListener("click", async e => {
     case "delExp": if (!confirmTap(b)) return; await patchDay({expenses: {[id]: {deleted: true, deletedBy: S.me.id}}}); break;
     case "delChq": if (!confirmTap(b)) return; await patchDay({cheques: {[id]: {deleted: true, deletedBy: S.me.id}}}); break;
     case "toggleClose":
+      if (!S.day.closed && model().meterAlerts.length) { openCloseSheet(); return; }
       if (!S.day.closed && !confirmTap(b)) return;
       if (await patchDay(S.day.closed ? {closed: false, reopenedBy: S.me.id, reopenedAt: new Date().toISOString()} : {closed: true, closedBy: S.me.id, closedAt: new Date().toISOString()})) { toast(S.day.closed ? "Day reopened" : "Day closed"); setTimeout(renderAll, 300); }
       break;
