@@ -73,7 +73,8 @@ h3{font-size:1.1rem}
 main{flex:1;min-width:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 110px;max-width:1080px;margin:0 auto;width:100%}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
   display:flex;padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
-.nav button{flex:1;min-width:0;border:0;background:none;padding:8px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:.7rem;font-weight:600;cursor:pointer}
+.nav{overflow-x:auto;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}
+.nav button{flex:1 0 50px;min-width:50px;border:0;background:none;padding:8px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:.7rem;font-weight:600;cursor:pointer}
 .nav button svg{width:22px;height:22px}
 .nav button[aria-current="page"]{color:var(--accent)}
 @media (min-width:900px){
@@ -260,6 +261,7 @@ const DEFAULT_SETTINGS = {
 };
 const DEFAULT_CUSTOMERS = [["police-53",16.45,null],["police-61",16.93,null],["police-52",16.93,null],["SA-005",14,null],["MTCC (ailaa)",17.03,null],["sl-4",18.78,null],["ayaada",18.78,null],["council",16.55,15.1],["kanduhulhudhoo health center",17.03,null],["SL-5",null,16.88],["RTL-124",null,13.75],["leo trading",null,32.32],["leo eagle",null,32.32],["rull",null,16.55],["nafaa",null,15.1],["ufaa",null,14.34],["kanduhulhudhoo council",null,17]];
 const ICON = {
+  expense: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
   stock: '<path d="M2 7h11v10H2zM13 10h4.5l3.5 3.5V17h-8"/><circle cx="6" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>',
   today: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
   sell: '<path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 8h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/>',
@@ -532,7 +534,7 @@ function renderWho() {
 function tabsFor() {
   const t = [{id: "today", label: "Today"}];
   if (can("sell")) t.push({id: "sell", label: "Sell"}, {id: "credit", label: "Credit"});
-  if (can("day")) t.push({id: "day", label: "Meters"}, {id: "stock", label: "Stock"});
+  if (can("day")) t.push({id: "day", label: "Meters"}, {id: "expense", label: "Expense"}, {id: "stock", label: "Stock"});
   if (can("slips")) t.push({id: "slips", label: "Slips"});
   if (can("reports")) t.push({id: "reports", label: "Reports"});
   t.push({id: "more", label: "More"});
@@ -547,7 +549,7 @@ function renderAll() {
   const di = $("#dateIn"); di.value = S.date; di.disabled = !can("anyDate"); di.max = can("anyDate") ? "" : todayStr();
   const main = $("#main");
   if (S.role === "none") { main.innerHTML = viewPending(); return; }
-  const v = {today: viewToday, sell: viewSell, credit: viewCredit, day: viewDay, stock: viewStock, slips: viewSlips, reports: viewReports, more: viewMore}[S.tab] || viewToday;
+  const v = {today: viewToday, sell: viewSell, credit: viewCredit, day: viewDay, stock: viewStock, expense: viewExpensesPage, slips: viewSlips, reports: viewReports, more: viewMore}[S.tab] || viewToday;
   main.innerHTML = v(); refreshLive(); syncBinds(); refreshCustomerSelects();
   window.scrollTo(0, 0);
 }
@@ -805,13 +807,7 @@ function viewDay() {
       <tbody>${s.tanks.map(t => `<tr><td><b>${esc(t.name)}</b><div class="small muted">${FUEL[t.fuel]}${t.capacity ? " · cap. " + nL(t.capacity) + " L" : ""}</div></td>
         ${["sounding", "bf", "loaded", "cb"].map(k => `<td><input class="in num" style="width:110px;text-align:right" inputmode="decimal" data-bind="tanks.${t.id}.${k}" aria-label="${k}" ${dis}></td>`).join("")}<td class="n" data-live="tank" data-id="${esc(t.id)}"></td></tr>`).join("")}</tbody></table></div></div>
     <div class="grid2">
-      <div class="card stack"><h3>Expenses</h3>
-        ${locked ? "" : `<form class="stack" data-form="expense" autocomplete="off">
-          <div class="row"><label class="f" style="flex:2">What for<input class="in" id="exDesc" required maxlength="80" placeholder="e.g. Generator repair"></label><label class="f">Amount (MVR)<input class="in num" id="exAmt" inputmode="decimal" required></label></div>
-          <div class="row"><label class="f">Category<select class="in" id="exCat">${EXP_CATS.map(c => `<option ${c === "Other" ? "selected" : ""}>${c}</option>`).join("")}</select></label><label class="f">Paid to<input class="in" id="exVen" maxlength="60" placeholder="Shop / person"></label><label class="f">Invoice no.<input class="in" id="exInv" maxlength="40"></label></div>
-          <label class="f">Invoice / bill photo (optional, as proof)<input class="in" type="file" id="exFiles" accept="image/*" multiple></label>
-          <button class="btn pri">Add expense</button><div id="exStatus" class="small muted" role="status"></div></form>`}
-        <div class="list" data-live="expList"></div><input type="file" id="exMore" accept="image/*" multiple hidden></div>
+      <div class="card stack"><h3>Expenses</h3><p class="small muted" style="margin:0">Expenses now have their own page.</p><button class="btn" data-tab="expense" style="align-self:flex-start">Open Expenses</button></div>
       <div class="card stack"><h3>Cheques in hand</h3>
         ${locked ? "" : `<form class="row" data-form="cheque" autocomplete="off"><input class="in" id="chNo" placeholder="Cheque no. / bank" required maxlength="60" style="flex:2;min-width:140px"><input class="in num" id="chAmt" placeholder="MVR" inputmode="decimal" required style="flex:1;min-width:90px"><button class="btn">Add</button></form>`}
         <div class="list" data-live="chqList"></div></div>
@@ -864,7 +860,7 @@ LIVE.expList = () => {
   const m = model(); const ed = !dayLocked() && !dateLocked();
   if (!m.expenses.length) return `<div class="empty">No expenses for this day.</div>`;
   return m.expenses.map(e => expenseRow(e, ed, S.date)).join("") +
-    `<div class="row between" style="padding-top:8px;font-weight:700"><span>Total</span><span class="num">${n2(m.expTotal)}</span></div>`;
+    (recordOnly() ? "" : `<div class="row between" style="padding-top:8px;font-weight:700"><span>Total</span><span class="num">${n2(m.expTotal)}</span></div>`);
 };
 LIVE.chqList = () => {
   const m = model(); const ed = !dayLocked() && !dateLocked();
@@ -889,6 +885,27 @@ function syncBinds() {
 }
 function nest(path, value) { const keys = path.split("."); const o = {}; let c = o; keys.forEach((k, i) => { if (i === keys.length - 1) c[k] = value; else c = c[k] = {}; }); return o; }
 
+/* --- EXPENSES PAGE --- */
+function viewExpensesPage() {
+  const locked = dayLocked() || dateLocked();
+  return `<div class="stack">
+    <div class="pagehead"><div><h2>Expenses · ${dmy(S.date)}</h2><p>Money paid out of the till. Add a photo of the invoice as proof if you have one.</p></div>${can("reports") ? `<button class="btn" data-act="goExpReport">Search past expenses</button>` : ""}</div>
+    ${dayBanner()}
+    ${recordOnly() ? "" : `<div class="kpis" data-live="expKpis"></div>`}
+    <div class="card stack"><h3>Add an expense</h3>
+        ${locked ? "" : `<form class="stack" data-form="expense" autocomplete="off">
+          <div class="row"><label class="f" style="flex:2">What for<input class="in" id="exDesc" required maxlength="80" placeholder="e.g. Generator repair"></label><label class="f">Amount (MVR)<input class="in num" id="exAmt" inputmode="decimal" required></label></div>
+          <div class="row"><label class="f">Category<select class="in" id="exCat">${EXP_CATS.map(c => `<option ${c === "Other" ? "selected" : ""}>${c}</option>`).join("")}</select></label><label class="f">Paid to<input class="in" id="exVen" maxlength="60" placeholder="Shop / person"></label><label class="f">Invoice no.<input class="in" id="exInv" maxlength="40"></label></div>
+          <label class="f">Invoice / bill photo (optional, as proof)<input class="in" type="file" id="exFiles" accept="image/*" multiple></label>
+          <button class="btn pri">Add expense</button><div id="exStatus" class="small muted" role="status"></div></form>`}
+        <div class="list" data-live="expList"></div><input type="file" id="exMore" accept="image/*" multiple hidden></div>
+  </div>`;
+}
+LIVE.expKpis = () => {
+  const m = model(); const withInv = m.expenses.filter(e => (e.imgs || []).length).length;
+  return `<div class="kpi"><div class="l">Expenses today</div><div class="v">${n2(m.expTotal)}</div><div class="s">MVR · ${plural(m.expenses.length, "expense", "expenses")}</div></div>
+    <div class="kpi"><div class="l">With invoice</div><div class="v">${withInv}</div><div class="s">of ${m.expenses.length}</div></div>`;
+};
 /* --- STOCK RECEIVED --- */
 const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 const tankName = id => ((st().tanks || []).find(t => t.id === id) || {}).name || "—";
@@ -896,7 +913,7 @@ function viewStock() {
   const locked = dateLocked() || !can("sell");
   const tanks = (st().tanks || []).filter(t => t.fuel === S.sellFuel);
   return `<div class="stack">
-    <div class="pagehead"><div><h2>Stock received · ${dmy(S.date)}</h2><p>Record each fuel delivery with a photo of every delivery note.</p></div></div>
+    <div class="pagehead"><div><h2>Stock received · ${dmy(S.date)}</h2><p>Record each fuel delivery. Add photos of the delivery note as proof.</p></div></div>
     ${dayBanner()}
     <div class="kpis" data-live="stockKpis"></div>
     ${locked ? "" : `<form class="card stack" data-form="receipt" autocomplete="off">
@@ -906,7 +923,7 @@ function viewStock() {
       <div class="row"><label class="f">Delivery note no.<input class="in" id="rcDno" required maxlength="40"></label><label class="f">Supplier<input class="in" id="rcSup" maxlength="60" value="${esc(ls.get("huvath.supplier") || "")}" placeholder="e.g. FSM"></label></div>
       <div class="row"><label class="f">Lorry / vessel no.<input class="in" id="rcVeh" maxlength="40"></label><label class="f">Cost per litre (optional)<input class="in num" id="rcRate" inputmode="decimal"></label></div>
       <label class="f">Note<input class="in" id="rcNote" maxlength="120" placeholder="e.g. dip before 52 cm, after 148 cm"></label>
-      <label class="f">Delivery note photos (all pages)<input class="in" type="file" id="rcFiles" accept="image/*" multiple required></label>
+      <label class="f">Delivery note photos (optional, as proof)<input class="in" type="file" id="rcFiles" accept="image/*" multiple></label>
       <div class="chips" id="rcPrev"></div>
       <button class="btn pri block" id="rcBtn">Save delivery</button><div id="rcStatus" class="small muted" role="status"></div></form>`}
     <div class="card"><h3>Deliveries · ${dmy(S.date)}</h3><div class="list" data-live="rcList"></div></div>
@@ -917,7 +934,7 @@ LIVE.stockKpis = () => {
   const m = model();
   return `<div class="kpi petrol"><div class="l">Petrol received</div><div class="v">${nL(m.received.petrol)} L</div><div class="s">${plural(m.receipts.filter(x => x.fuel === "petrol").length, "delivery", "deliveries")}</div></div>
     <div class="kpi diesel"><div class="l">Diesel received</div><div class="v">${nL(m.received.diesel)} L</div><div class="s">${plural(m.receipts.filter(x => x.fuel === "diesel").length, "delivery", "deliveries")}</div></div>
-    <div class="kpi"><div class="l">Delivery notes</div><div class="v">${m.receipts.reduce((a, x) => a + (x.imgs || []).length, 0)}</div><div class="s">${m.missingNotes ? `<span class="pill bad">${m.missingNotes} missing</span>` : "photos uploaded"}</div></div>`;
+    <div class="kpi"><div class="l">Delivery notes</div><div class="v">${m.receipts.reduce((a, x) => a + (x.imgs || []).length, 0)}</div><div class="s">${m.receipts.length - m.missingNotes} of ${m.receipts.length} deliveries</div></div>`;
 };
 async function loadRcImg(id) {
   if (S.rcImgCache[id] !== undefined) return; S.rcImgCache[id] = "";
@@ -928,7 +945,7 @@ LIVE.rcList = () => {
   if (!S.receipts.length) return `<div class="empty">No deliveries recorded for ${dmy(S.date)}.</div>`;
   return [...S.receipts].reverse().map(x => {
     const imgs = x.imgs || []; const own = x.by === S.me.id;
-    return `<div class="li"><span class="dot ${x.fuel}"></span><div class="main"><b>${FUEL[x.fuel]} ${nL(x.qty)} L → ${esc(tankName(x.tankId))}</b>${imgs.length ? "" : ` <span class="pill bad">Delivery note missing</span>`}
+    return `<div class="li"><span class="dot ${x.fuel}"></span><div class="main"><b>${FUEL[x.fuel]} ${nL(x.qty)} L → ${esc(tankName(x.tankId))}</b>${imgs.length ? ` <span class="pill good">Note ✓</span>` : ""}
       <div class="small muted">${hm(x.at)} · ${esc(nameOf(x.by))} · D/N <b>${esc(x.dno)}</b>${x.supplier ? " · " + esc(x.supplier) : ""}${x.vehicle ? " · " + esc(x.vehicle) : ""}${x.note ? " · " + esc(x.note) : ""}</div>
       <div class="row" style="margin-top:6px;gap:6px">${imgs.map(i => { const src = rcSrc(i); return src ? `<img class="slipimg" src="${esc(src)}" alt="Delivery note" data-act="rcView" data-id="${x.id}">` : `<div class="slipimg" data-act="rcView" data-id="${x.id}"></div>`; }).join("")}</div></div>
       <div class="amt">${nL(x.qty)} L${x.amount ? `<div class="small muted">MVR ${n2(x.amount)}</div>` : ""}</div>
@@ -949,11 +966,10 @@ async function submitReceipt(f) {
   const tankId = $("#rcTank").value, dno = $("#rcDno").value.trim();
   if (!tankId) return toast("Set up a tank for this fuel in Station settings first");
   if (!(qty > 0)) return toast("Enter the litres received"); if (!dno) return toast("Enter the delivery note number");
-  if (!files.length) return toast("Add a photo of the delivery note");
   const dup = S.receipts.find(x => x.dno.toLowerCase() === dno.toLowerCase());
   if (dup && !confirmTap($("#rcBtn"))) { status.textContent = "This delivery note number is already recorded today. Tap Save again to record it anyway."; return; }
-  const id = newId(); status.textContent = `Uploading ${files.length} photo${files.length > 1 ? "s" : ""}…`;
-  let imgs; try { imgs = await saveReceiptImages(files, id); } catch (er) { status.textContent = ""; return toast(er && er.code ? dbErr(er) : "Couldn't read a photo. Try again."); }
+  const id = newId(); if (files.length) status.textContent = `Uploading ${files.length} photo${files.length > 1 ? "s" : ""}…`;
+  let imgs = []; try { if (files.length) imgs = await saveReceiptImages(files, id); } catch (er) { status.textContent = ""; return toast(er && er.code ? dbErr(er) : "Couldn't read a photo. Try again."); }
   const rate = numOrNull($("#rcRate").value); const sup = $("#rcSup").value.trim(); ls.set("huvath.supplier", sup);
   try {
     await S.db.doc("receipts/" + id).set({date: S.date, fuel: S.sellFuel, tankId, qty, dno, supplier: sup || null, vehicle: $("#rcVeh").value.trim() || null, rate, amount: rate ? r2(rate * qty) : null, note: $("#rcNote").value.trim() || null, imgs, by: S.me.id, at: new Date().toISOString()});
@@ -1136,7 +1152,7 @@ function dailyHtml(m) {
       <div class="tw"><table><thead><tr><th>Expenses</th><th class="n">Amount</th><th>Invoice</th></tr></thead><tbody>${ex}<tr class="tot"><td>Total</td><td class="n">${n2(m.expTotal)}</td><td></td></tr></tbody></table></div>
     </div>
     <div style="padding:0 14px 14px" class="stack">
-      ${m.receipts.length ? `<div class="tw"><table><thead><tr><th>Stock received</th><th>Fuel</th><th>Tank</th><th>D/N No.</th><th>Supplier</th><th>Vehicle</th><th class="n">Litres</th><th class="n">Amount</th><th>Note photos</th></tr></thead><tbody>${m.receipts.map(x => `<tr class="${(x.imgs || []).length ? "" : "bad"}"><td>${hm(x.at)}</td><td>${FUEL[x.fuel]}</td><td>${esc(tankName(x.tankId))}</td><td>${esc(x.dno)}</td><td>${esc(x.supplier || "")}</td><td>${esc(x.vehicle || "")}</td><td class="n">${nR(x.qty)}</td><td class="n">${x.amount ? n2(x.amount) : ""}</td><td>${(x.imgs || []).length || "MISSING"}</td></tr>`).join("")}<tr class="tot"><td colspan="6">Total received · Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L</td><td class="n">${nR(r3(m.received.petrol + m.received.diesel))}</td><td class="n">${n2(m.receipts.reduce((a, x) => a + num(x.amount), 0))}</td><td></td></tr></tbody></table></div>` : ""}
+      ${m.receipts.length ? `<div class="tw"><table><thead><tr><th>Stock received</th><th>Fuel</th><th>Tank</th><th>D/N No.</th><th>Supplier</th><th>Vehicle</th><th class="n">Litres</th><th class="n">Amount</th><th>Note photos</th></tr></thead><tbody>${m.receipts.map(x => `<tr><td>${hm(x.at)}</td><td>${FUEL[x.fuel]}</td><td>${esc(tankName(x.tankId))}</td><td>${esc(x.dno)}</td><td>${esc(x.supplier || "")}</td><td>${esc(x.vehicle || "")}</td><td class="n">${nR(x.qty)}</td><td class="n">${x.amount ? n2(x.amount) : ""}</td><td>${(x.imgs || []).length || "—"}</td></tr>`).join("")}<tr class="tot"><td colspan="6">Total received · Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L</td><td class="n">${nR(r3(m.received.petrol + m.received.diesel))}</td><td class="n">${n2(m.receipts.reduce((a, x) => a + num(x.amount), 0))}</td><td></td></tr></tbody></table></div>` : ""}
       <div class="tw"><table><thead><tr><th>Tank No.</th><th>Fuel</th><th class="n">Start sounding</th><th class="n">Bal. B/F</th><th class="n">Bal. C/B</th><th class="n">Qty loaded</th><th class="n">Used</th></tr></thead><tbody>${tk}</tbody></table></div>
       <div class="grid2">
         <div class="tw"><table><thead><tr><th colspan="2">Cash summary</th></tr></thead><tbody>
@@ -1283,7 +1299,7 @@ function dailyPdf(m) {
     theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {1: R, 2: R, 3: R, 4: R, 5: R}});
   y = doc.lastAutoTable.finalY + 12;
   if (m.receipts.length) {
-    doc.autoTable({startY: y, head: [["Stock received", "Fuel", "Tank", "D/N No.", "Supplier", "Vehicle", "Litres", "Amount", "Photos"]], body: [...m.receipts.map(x => { const st4 = (x.imgs || []).length ? {} : {fillColor: RED_SOFT, textColor: RED, fontStyle: "bold"}; return [hm(x.at), FUEL[x.fuel], tankName(x.tankId), x.dno || "", x.supplier || "", x.vehicle || "", fmtL(x.qty), x.amount ? n2(x.amount) : "", (x.imgs || []).length ? String(x.imgs.length) : "MISSING"].map(v => ({content: v, styles: st4})); }),
+    doc.autoTable({startY: y, head: [["Stock received", "Fuel", "Tank", "D/N No.", "Supplier", "Vehicle", "Litres", "Amount", "Photos"]], body: [...m.receipts.map(x => { return [hm(x.at), FUEL[x.fuel], tankName(x.tankId), x.dno || "", x.supplier || "", x.vehicle || "", fmtL(x.qty), x.amount ? n2(x.amount) : "", (x.imgs || []).length ? String(x.imgs.length) : "-"]; }),
       [{content: `Total received · Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L`, colSpan: 6, styles: {fontStyle: "bold"}}, {content: fmtL(r3(m.received.petrol + m.received.diesel)), styles: {fontStyle: "bold"}}, {content: n2(m.receipts.reduce((a, x) => a + num(x.amount), 0)), styles: {fontStyle: "bold"}}, ""]],
       theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {6: R, 7: R}});
     y = doc.lastAutoTable.finalY + 12;
@@ -1376,7 +1392,7 @@ async function dailyXlsx(m) {
     /* expenses sheet is added below with the other detail sheets */
     const w5 = wb.addWorksheet("Stock Received"); w5.columns = [8, 10, 18, 14, 22, 14, 12, 10, 12, 10, 18, 30].map(w => ({width: w}));
     xTable(w5, 1, 1, ["Time", "Fuel", "Tank", "D/N No.", "Supplier", "Vehicle", "Litres", "Rate", "Amount", "Photos", "Received by", "Note"],
-      [...m.receipts.map(x => ({kind: (x.imgs || []).length ? "" : "bad", v: [hm(x.at), FUEL[x.fuel], tankName(x.tankId), x.dno || "", x.supplier || "", x.vehicle || "", num(x.qty), x.rate ? num(x.rate) : "", x.amount ? num(x.amount) : "", (x.imgs || []).length || "MISSING", nameOf(x.by), x.note || ""]})),
+      [...m.receipts.map(x => ({kind: "", v: [hm(x.at), FUEL[x.fuel], tankName(x.tankId), x.dno || "", x.supplier || "", x.vehicle || "", num(x.qty), x.rate ? num(x.rate) : "", x.amount ? num(x.amount) : "", (x.imgs || []).length || "", nameOf(x.by), x.note || ""]})),
        {kind: "total", v: ["Total", "", "", "", "", "", r3(m.received.petrol + m.received.diesel), "", r2(m.receipts.reduce((a, x) => a + num(x.amount), 0)), "", "", `Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L`]}], {litreCols: [6]});
   }
   if (m.slips.length) {
@@ -1514,6 +1530,7 @@ document.addEventListener("click", async e => {
       break;
     case "exView": { const d = b.dataset.date; const e = d === S.date ? model().expenses.find(x => x.id === id) : (S.sub.exRows || []).find(x => x.id === id); viewExpense(e); break; }
     case "exAddPhoto": S.sub.exAddTo = id; $("#exMore").click(); break;
+    case "goExpReport": S.tab = "reports"; S.reportMode = "expenses"; renderAll(); break;
     case "rcFuel": S.sellFuel = b.dataset.fuel; ls.set("huvath.fuel", S.sellFuel); renderAll(); break;
     case "rcView": viewReceipt(S.receipts.find(x => x.id === id)); break;
     case "rcAddPhoto": S.sub.rcAddTo = id; $("#rcMore").click(); break;
