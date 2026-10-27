@@ -53,6 +53,18 @@ service cloud.firestore {
         (resource.data.by == request.auth.uid && request.resource.data.status in ['checking', 'pending', 'verified', 'review', 'mismatch']);
       allow delete: if hasRole(['manager']);
     }
+    // Fuel deliveries (stock received) and their delivery note photos.
+    match /receipts/{id} {
+      allow read: if anyStaff();
+      allow create: if hasRole(['manager', 'cashier']) && request.resource.data.by == request.auth.uid;
+      allow update: if hasRole(['manager']) || (hasRole(['cashier']) && resource.data.by == request.auth.uid);
+      allow delete: if isOwner();
+    }
+    match /receiptimg/{id} {
+      allow read: if anyStaff();
+      allow create: if hasRole(['manager', 'cashier']);
+      allow delete: if hasRole(['manager']);
+    }
     match /slipimg/{id} {
       allow read, create: if anyStaff();
       allow delete: if hasRole(['manager']);

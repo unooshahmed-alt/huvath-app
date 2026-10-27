@@ -260,6 +260,7 @@ const DEFAULT_SETTINGS = {
 };
 const DEFAULT_CUSTOMERS = [["police-53",16.45,null],["police-61",16.93,null],["police-52",16.93,null],["SA-005",14,null],["MTCC (ailaa)",17.03,null],["sl-4",18.78,null],["ayaada",18.78,null],["council",16.55,15.1],["kanduhulhudhoo health center",17.03,null],["SL-5",null,16.88],["RTL-124",null,13.75],["leo trading",null,32.32],["leo eagle",null,32.32],["rull",null,16.55],["nafaa",null,15.1],["ufaa",null,14.34],["kanduhulhudhoo council",null,17]];
 const ICON = {
+  stock: '<path d="M2 7h11v10H2zM13 10h4.5l3.5 3.5V17h-8"/><circle cx="6" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>',
   today: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
   sell: '<path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 8h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/>',
   credit: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
@@ -276,7 +277,7 @@ const S = {
   me: {id: null, name: "", email: null, avatar: "", isOwner: false}, role: "none",
   settings: null, settingsLoaded: false, customers: {}, roles: {}, staff: {}, names: {},
   date: todayStr(), entryDocs: [], items: [], allItems: [], day: {}, dayExists: false, prevDay: null, slips: [],
-  tab: ls.get("huvath.tab") || "today", sub: {}, unsubs: [], dateUnsubs: [], imgCache: {}, sellFuel: ls.get("huvath.fuel") || "petrol",
+  tab: ls.get("huvath.tab") || "today", sub: {}, unsubs: [], dateUnsubs: [], imgCache: {}, receipts: [], rcImgCache: {}, sellFuel: ls.get("huvath.fuel") || "petrol",
   sellMode: "L", sellPay: "cash", creditMode: "sale", reportMode: "daily", moreView: null, writeBlocked: false
 };
 const st = () => S.settings || DEFAULT_SETTINGS;
@@ -339,8 +340,8 @@ function flatten(docs) {
   }
   return out.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
-function buildDaily({date, items, day, slips, settings, prevDay}) {
-  settings = settings || DEFAULT_SETTINGS; day = day || {}; slips = slips || [];
+function buildDaily({date, items, day, slips, settings, prevDay, receipts}) {
+  settings = settings || DEFAULT_SETTINGS; day = day || {}; slips = slips || []; receipts = (receipts || []).filter(x => !x.deleted);
   const live = items.filter(i => !i.deleted);
   const rows = []; const T = {cash: 0, credit: 0, coll: 0, tcash: 0}; const rec = {petrol: 0, diesel: 0};
   const recAmt = {petrol: 0, diesel: 0}; let transfers = 0;
@@ -392,8 +393,9 @@ function buildDaily({date, items, day, slips, settings, prevDay}) {
 
   const tanks = (settings.tanks || []).map(t => {
     const dt = (day.tanks || {})[t.id] || {}; const pt = prevDay && (prevDay.tanks || {})[t.id] || {};
-    const bf = dt.bf ?? pt.cb ?? null; const loaded = dt.loaded ?? null; const cb = dt.cb ?? null;
-    return {...t, sounding: dt.sounding ?? null, bf, loaded, cb, usage: bf != null && cb != null ? r3(bf + (loaded || 0) - cb) : null};
+    const recv = receipts.filter(x => x.tankId === t.id); const recvQty = recv.length ? r3(recv.reduce((a, x) => a + num(x.qty), 0)) : null;
+    const bf = dt.bf ?? pt.cb ?? null; const loaded = dt.loaded ?? recvQty; const cb = dt.cb ?? null;
+    return {...t, sounding: dt.sounding ?? null, bf, loaded, loadedFromReceipts: dt.loaded == null && recvQty != null, cb, usage: bf != null && cb != null ? r3(bf + (loaded || 0) - cb) : null};
   });
   const expenses = Object.entries(day.expenses || {}).filter(([, e]) => e && !e.deleted).map(([id, e]) => ({id, ...e})).sort((a, b) => String(a.at).localeCompare(String(b.at)));
   const expTotal = r2(expenses.reduce((s, e) => s + num(e.amount), 0));
@@ -419,7 +421,8 @@ function buildDaily({date, items, day, slips, settings, prevDay}) {
   const meterAlerts = meterCheck.filter(c => c.status === "off").map(c => ({...c, text: c.diff > 0
     ? `${FUEL[c.fuel]} meter shows ${nL(c.meter)} L sold, but the sales sheet has only ${nL(c.recorded)} L. ${nL(c.diff)} L (about MVR ${n2(c.value)}) is missing from the sales sheet.`
     : `${FUEL[c.fuel]}: the sales sheet has ${nL(c.recorded)} L, but the meter shows only ${nL(c.meter)} L sold. ${nL(-c.diff)} L too many recorded. Check for double entries or a wrong meter reading.`}));
-  return {date, settings, rows, T, rec, recAmt, meters, meterSale, meterCheck, meterAlerts, mismatchNote: day.mismatchNote || "", tanks, expenses, expTotal, deposits, transfers: r2(transfers), transferSlips,
+  const received = {petrol: 0, diesel: 0}; receipts.forEach(x => received[x.fuel] = r3((received[x.fuel] || 0) + num(x.qty)));
+  return {date, settings, receipts, received, missingNotes: receipts.filter(x => !(x.imgs || []).length).length, rows, T, rec, recAmt, meters, meterSale, meterCheck, meterAlerts, mismatchNote: day.mismatchNote || "", tanks, expenses, expTotal, deposits, transfers: r2(transfers), transferSlips,
     denoms, coins, notesTotal, cheques, chequeTotal, counted, expected, cashDiff: r2(counted - expected), cashCounted: counted > 0,
     slips, notes: day.notes || "", closed: !!day.closed, closedBy: day.closedBy, items: live, count: live.length};
 }
@@ -462,12 +465,15 @@ function computeRole() {
 function subscribeDate() {
   S.dateUnsubs.forEach(u => { try { u(); } catch {} }); S.dateUnsubs = [];
   const db = S.db, D = S.date;
-  S.entryDocs = []; S.items = []; S.day = {}; S.dayExists = false; S.slips = []; S.prevDay = null;
+  S.entryDocs = []; S.items = []; S.day = {}; S.dayExists = false; S.slips = []; S.receipts = []; S.prevDay = null;
   S.dateUnsubs.push(db.collection("entries").where("date", "==", D).onSnapshot(s => {
     S.entryDocs = s.docs.map(d => ({...d.data(), _id: d.id})); S.allItems = flatten(S.entryDocs); S.items = S.allItems.filter(i => !i.deleted);
     refreshLive(); resolveNames(S.allItems.map(i => i.by));
   }, onSubErr));
   S.dateUnsubs.push(db.doc("days/" + D).onSnapshot(s => { S.dayExists = s.exists; S.day = s.exists ? s.data() : {}; refreshLive(); syncBinds(); }, onSubErr));
+  S.dateUnsubs.push(db.collection("receipts").where("date", "==", D).onSnapshot(s => {
+    S.receipts = s.docs.map(d => ({...d.data(), id: d.id})).filter(x => !x.deleted).sort((a, b) => String(a.at).localeCompare(String(b.at))); refreshLive(); syncBinds();
+  }, onSubErr));
   S.dateUnsubs.push(db.collection("slips").where("date", "==", D).onSnapshot(s => {
     S.slips = s.docs.map(d => ({...d.data(), id: d.id})).sort((a, b) => String(b.at).localeCompare(String(a.at))); refreshLive();
   }, onSubErr));
@@ -478,7 +484,7 @@ function subscribeDate() {
 function setDate(d) {
   if (!d) return; S.date = d; $("#dateIn").value = d; if (S.db && S.role !== "none") { subscribeDate(); renderAll(); }
 }
-const model = () => buildDaily({date: S.date, items: S.items, day: S.day, slips: S.slips, settings: st(), prevDay: S.prevDay});
+const model = () => buildDaily({date: S.date, items: S.items, day: S.day, slips: S.slips, receipts: S.receipts, settings: st(), prevDay: S.prevDay});
 
 /* entries: one document per person per day (sharded), items merged by id */
 async function addItem(item) {
@@ -526,7 +532,7 @@ function renderWho() {
 function tabsFor() {
   const t = [{id: "today", label: "Today"}];
   if (can("sell")) t.push({id: "sell", label: "Sell"}, {id: "credit", label: "Credit"});
-  if (can("day")) t.push({id: "day", label: "Readings"});
+  if (can("day")) t.push({id: "day", label: "Meters"}, {id: "stock", label: "Stock"});
   if (can("slips")) t.push({id: "slips", label: "Slips"});
   if (can("reports")) t.push({id: "reports", label: "Reports"});
   t.push({id: "more", label: "More"});
@@ -541,7 +547,7 @@ function renderAll() {
   const di = $("#dateIn"); di.value = S.date; di.disabled = !can("anyDate"); di.max = can("anyDate") ? "" : todayStr();
   const main = $("#main");
   if (S.role === "none") { main.innerHTML = viewPending(); return; }
-  const v = {today: viewToday, sell: viewSell, credit: viewCredit, day: viewDay, slips: viewSlips, reports: viewReports, more: viewMore}[S.tab] || viewToday;
+  const v = {today: viewToday, sell: viewSell, credit: viewCredit, day: viewDay, stock: viewStock, slips: viewSlips, reports: viewReports, more: viewMore}[S.tab] || viewToday;
   main.innerHTML = v(); refreshLive(); syncBinds(); refreshCustomerSelects();
   window.scrollTo(0, 0);
 }
@@ -840,11 +846,90 @@ function syncBinds() {
       const [kind, id, k] = el.dataset.bind.split(".");
       if (kind === "meters" && k === "start") { const mt = m.meters.find(x => x.id === id); el.placeholder = mt && mt.startFromPrev ? String(mt.start) : "0"; }
       if (kind === "tanks" && k === "bf") { const t = m.tanks.find(x => x.id === id); el.placeholder = t && t.bf != null && v == null ? String(t.bf) : ""; }
+      if (kind === "tanks" && k === "loaded") { const t = m.tanks.find(x => x.id === id); el.placeholder = t && t.loadedFromReceipts ? String(t.loaded) : ""; el.title = t && t.loadedFromReceipts ? "From delivery notes on the Stock page" : ""; }
     }
   });
 }
 function nest(path, value) { const keys = path.split("."); const o = {}; let c = o; keys.forEach((k, i) => { if (i === keys.length - 1) c[k] = value; else c = c[k] = {}; }); return o; }
 
+/* --- STOCK RECEIVED --- */
+const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
+const tankName = id => ((st().tanks || []).find(t => t.id === id) || {}).name || "—";
+function viewStock() {
+  const locked = dateLocked() || !can("sell");
+  const tanks = (st().tanks || []).filter(t => t.fuel === S.sellFuel);
+  return `<div class="stack">
+    <div class="pagehead"><div><h2>Stock received · ${dmy(S.date)}</h2><p>Record each fuel delivery with a photo of every delivery note.</p></div></div>
+    ${dayBanner()}
+    <div class="kpis" data-live="stockKpis"></div>
+    ${locked ? "" : `<form class="card stack" data-form="receipt" autocomplete="off">
+      <div class="fuelpick">${FUELS.map(f => `<button type="button" data-fuel="${f}" data-act="rcFuel" aria-pressed="${S.sellFuel === f}"><b>${FUEL[f]}</b><span>delivery</span></button>`).join("")}</div>
+      <div class="row"><label class="f">Tank<select class="in" id="rcTank" required>${tanks.length ? tanks.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("") : `<option value="">No ${FUEL[S.sellFuel].toLowerCase()} tank set up</option>`}</select></label>
+        <label class="f">Litres received<input class="in num big" id="rcQty" inputmode="decimal" required></label></div>
+      <div class="row"><label class="f">Delivery note no.<input class="in" id="rcDno" required maxlength="40"></label><label class="f">Supplier<input class="in" id="rcSup" maxlength="60" value="${esc(ls.get("huvath.supplier") || "")}" placeholder="e.g. FSM"></label></div>
+      <div class="row"><label class="f">Lorry / vessel no.<input class="in" id="rcVeh" maxlength="40"></label><label class="f">Cost per litre (optional)<input class="in num" id="rcRate" inputmode="decimal"></label></div>
+      <label class="f">Note<input class="in" id="rcNote" maxlength="120" placeholder="e.g. dip before 52 cm, after 148 cm"></label>
+      <label class="f">Delivery note photos (all pages)<input class="in" type="file" id="rcFiles" accept="image/*" multiple required></label>
+      <div class="chips" id="rcPrev"></div>
+      <button class="btn pri block" id="rcBtn">Save delivery</button><div id="rcStatus" class="small muted" role="status"></div></form>`}
+    <div class="card"><h3>Deliveries · ${dmy(S.date)}</h3><div class="list" data-live="rcList"></div></div>
+    <input type="file" id="rcMore" accept="image/*" multiple hidden>
+  </div>`;
+}
+LIVE.stockKpis = () => {
+  const m = model();
+  return `<div class="kpi petrol"><div class="l">Petrol received</div><div class="v">${nL(m.received.petrol)} L</div><div class="s">${plural(m.receipts.filter(x => x.fuel === "petrol").length, "delivery", "deliveries")}</div></div>
+    <div class="kpi diesel"><div class="l">Diesel received</div><div class="v">${nL(m.received.diesel)} L</div><div class="s">${plural(m.receipts.filter(x => x.fuel === "diesel").length, "delivery", "deliveries")}</div></div>
+    <div class="kpi"><div class="l">Delivery notes</div><div class="v">${m.receipts.reduce((a, x) => a + (x.imgs || []).length, 0)}</div><div class="s">${m.missingNotes ? `<span class="pill bad">${m.missingNotes} missing</span>` : "photos uploaded"}</div></div>`;
+};
+async function loadRcImg(id) {
+  if (S.rcImgCache[id] !== undefined) return; S.rcImgCache[id] = "";
+  try { const g = await S.db.doc("receiptimg/" + id).get(); if (g.exists) { S.rcImgCache[id] = g.data().data; refreshLive(); } } catch {}
+}
+const rcSrc = id => { if (S.rcImgCache[id]) return S.rcImgCache[id]; loadRcImg(id); return ""; };
+LIVE.rcList = () => {
+  if (!S.receipts.length) return `<div class="empty">No deliveries recorded for ${dmy(S.date)}.</div>`;
+  return [...S.receipts].reverse().map(x => {
+    const imgs = x.imgs || []; const own = x.by === S.me.id;
+    return `<div class="li"><span class="dot ${x.fuel}"></span><div class="main"><b>${FUEL[x.fuel]} ${nL(x.qty)} L → ${esc(tankName(x.tankId))}</b>${imgs.length ? "" : ` <span class="pill bad">Delivery note missing</span>`}
+      <div class="small muted">${hm(x.at)} · ${esc(nameOf(x.by))} · D/N <b>${esc(x.dno)}</b>${x.supplier ? " · " + esc(x.supplier) : ""}${x.vehicle ? " · " + esc(x.vehicle) : ""}${x.note ? " · " + esc(x.note) : ""}</div>
+      <div class="row" style="margin-top:6px;gap:6px">${imgs.map(i => { const src = rcSrc(i); return src ? `<img class="slipimg" src="${esc(src)}" alt="Delivery note" data-act="rcView" data-id="${x.id}">` : `<div class="slipimg" data-act="rcView" data-id="${x.id}"></div>`; }).join("")}</div></div>
+      <div class="amt">${nL(x.qty)} L${x.amount ? `<div class="small muted">MVR ${n2(x.amount)}</div>` : ""}</div>
+      <div class="acts">${!dateLocked() && (can("editAny") || own) ? `<button class="btn sm" data-act="rcAddPhoto" data-id="${x.id}">Add photo</button>` : ""}${can("editAny") ? `<button class="btn sm danger" data-act="rcDel" data-id="${x.id}">Delete</button>` : ""}</div></div>`;
+  }).join("");
+};
+async function saveReceiptImages(files, receiptId) {
+  const ids = [];
+  for (const file of files) {
+    let q = .62, small; for (let i = 0; i < 4; i++) { small = await compressImage(file, 1400 - i * 200, q); if (small.blob.size < 200000) break; q -= .1; }
+    const dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(small.blob); });
+    const id = newId(); await S.db.doc("receiptimg/" + id).set({data: dataUrl, date: S.date, receipt: receiptId, by: S.me.id}); S.rcImgCache[id] = dataUrl; ids.push(id);
+  }
+  return ids;
+}
+async function submitReceipt(f) {
+  const files = [...$("#rcFiles").files]; const qty = r3(num($("#rcQty").value)); const status = $("#rcStatus");
+  const tankId = $("#rcTank").value, dno = $("#rcDno").value.trim();
+  if (!tankId) return toast("Set up a tank for this fuel in Station settings first");
+  if (!(qty > 0)) return toast("Enter the litres received"); if (!dno) return toast("Enter the delivery note number");
+  if (!files.length) return toast("Add a photo of the delivery note");
+  const dup = S.receipts.find(x => x.dno.toLowerCase() === dno.toLowerCase());
+  if (dup && !confirmTap($("#rcBtn"))) { status.textContent = "This delivery note number is already recorded today. Tap Save again to record it anyway."; return; }
+  const id = newId(); status.textContent = `Uploading ${files.length} photo${files.length > 1 ? "s" : ""}…`;
+  let imgs; try { imgs = await saveReceiptImages(files, id); } catch (er) { status.textContent = ""; return toast(er && er.code ? dbErr(er) : "Couldn't read a photo. Try again."); }
+  const rate = numOrNull($("#rcRate").value); const sup = $("#rcSup").value.trim(); ls.set("huvath.supplier", sup);
+  try {
+    await S.db.doc("receipts/" + id).set({date: S.date, fuel: S.sellFuel, tankId, qty, dno, supplier: sup || null, vehicle: $("#rcVeh").value.trim() || null, rate, amount: rate ? r2(rate * qty) : null, note: $("#rcNote").value.trim() || null, imgs, by: S.me.id, at: new Date().toISOString()});
+    status.textContent = ""; toast(`Delivery saved · ${FUEL[S.sellFuel]} ${nL(qty)} L`);
+    ["rcQty", "rcDno", "rcVeh", "rcRate", "rcNote"].forEach(i => $("#" + i).value = ""); $("#rcFiles").value = ""; $("#rcPrev").innerHTML = "";
+  } catch (er) { status.textContent = ""; toast(dbErr(er)); }
+}
+function viewReceipt(x) {
+  if (!x) return;
+  openSheet(`<div class="stack"><div class="row between"><h3>${FUEL[x.fuel]} ${nL(x.qty)} L · D/N ${esc(x.dno)}</h3><button class="btn sm" data-close>Close</button></div>
+    <div class="small muted">${esc(tankName(x.tankId))} · ${hm(x.at)} · ${esc(nameOf(x.by))}${x.supplier ? " · " + esc(x.supplier) : ""}${x.vehicle ? " · " + esc(x.vehicle) : ""}</div>
+    ${(x.imgs || []).map(i => `<img src="${esc(rcSrc(i))}" alt="Delivery note page" style="width:100%;border-radius:8px;background:var(--surface-2);min-height:80px">`).join("") || `<div class="empty">No delivery note photo.</div>`}</div>`);
+}
 /* --- SLIPS --- */
 function viewSlips() {
   const accts = st().bankAccounts || [];
@@ -1013,6 +1098,7 @@ function dailyHtml(m) {
       <div class="tw"><table><thead><tr><th>Expenses</th><th class="n">Amount</th></tr></thead><tbody>${ex}<tr class="tot"><td>Total</td><td class="n">${n2(m.expTotal)}</td></tr></tbody></table></div>
     </div>
     <div style="padding:0 14px 14px" class="stack">
+      ${m.receipts.length ? `<div class="tw"><table><thead><tr><th>Stock received</th><th>Fuel</th><th>Tank</th><th>D/N No.</th><th>Supplier</th><th>Vehicle</th><th class="n">Litres</th><th class="n">Amount</th><th>Note photos</th></tr></thead><tbody>${m.receipts.map(x => `<tr class="${(x.imgs || []).length ? "" : "bad"}"><td>${hm(x.at)}</td><td>${FUEL[x.fuel]}</td><td>${esc(tankName(x.tankId))}</td><td>${esc(x.dno)}</td><td>${esc(x.supplier || "")}</td><td>${esc(x.vehicle || "")}</td><td class="n">${nR(x.qty)}</td><td class="n">${x.amount ? n2(x.amount) : ""}</td><td>${(x.imgs || []).length || "MISSING"}</td></tr>`).join("")}<tr class="tot"><td colspan="6">Total received · Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L</td><td class="n">${nR(r3(m.received.petrol + m.received.diesel))}</td><td class="n">${n2(m.receipts.reduce((a, x) => a + num(x.amount), 0))}</td><td></td></tr></tbody></table></div>` : ""}
       <div class="tw"><table><thead><tr><th>Tank No.</th><th>Fuel</th><th class="n">Start sounding</th><th class="n">Bal. B/F</th><th class="n">Bal. C/B</th><th class="n">Qty loaded</th><th class="n">Used</th></tr></thead><tbody>${tk}</tbody></table></div>
       <div class="grid2">
         <div class="tw"><table><thead><tr><th colspan="2">Cash summary</th></tr></thead><tbody>
@@ -1032,26 +1118,28 @@ LIVE.changeLog = () => {
   return ch.map(i => `<div class="li"><span class="dot ${dotCls(i)}"></span><div class="main"><b>${itemTitle(i)}</b><div class="small muted">Recorded ${hm(i.at)} by ${esc(nameOf(i.by))} · ${i.deleted ? `<b>deleted</b> ${hm(i.deletedAt)} by ${esc(nameOf(i.deletedBy))}` : `edited ${hm(i.editedAt)} by ${esc(nameOf(i.editedBy))}`}</div></div><div class="amt">${n2(i.amount)}</div></div>`).join("");
 };
 async function fetchRange(from, to) {
-  const [eq, dq, sq] = await Promise.all([
+  const [eq, dq, sq, rq] = await Promise.all([
     S.db.collection("entries").where("date", ">=", from).where("date", "<=", to).get(),
     S.db.collection("days").where("date", ">=", from).where("date", "<=", to).get(),
-    S.db.collection("slips").where("date", ">=", from).where("date", "<=", to).get()]);
+    S.db.collection("slips").where("date", ">=", from).where("date", "<=", to).get(),
+    S.db.collection("receipts").where("date", ">=", from).where("date", "<=", to).get()]);
   const byDate = {};
-  const touch = d => byDate[d] || (byDate[d] = {docs: [], day: null, slips: []});
+  const touch = d => byDate[d] || (byDate[d] = {docs: [], day: null, slips: [], receipts: []});
+  rq.docs.forEach(d => { const x = d.data(); touch(x.date).receipts.push({...x, id: d.id}); });
   eq.docs.forEach(d => { const x = d.data(); touch(x.date).docs.push({...x, _id: d.id}); });
   dq.docs.forEach(d => { const x = d.data(); touch(x.date).day = x; });
   sq.docs.forEach(d => { const x = d.data(); touch(x.date).slips.push({...x, id: d.id}); });
   const dates = Object.keys(byDate).sort(); let prev = null; const days = [];
   for (const dt of dates) {
     const b = byDate[dt]; const items = flatten(b.docs).filter(i => !i.deleted);
-    const m = buildDaily({date: dt, items, day: b.day || {}, slips: b.slips, settings: st(), prevDay: prev});
+    const m = buildDaily({date: dt, items, day: b.day || {}, slips: b.slips, receipts: b.receipts, settings: st(), prevDay: prev});
     days.push(m); if (b.day) prev = b.day;
   }
   return days;
 }
 function rangeModel(days, from, to) {
-  const cols = ["Date", "Petrol L", "Diesel L", "Petrol meter L", "Diesel meter L", "Petrol diff L", "Diesel diff L", "Cash sales", "Credit sales", "Collections", "Total cash", "Expenses", "Bank deposit", "Expected cash", "Counted", "Difference"];
-  const rows = days.map(m => [dmy(m.date), r3(m.rec.petrol), r3(m.rec.diesel), m.meterSale.petrol, m.meterSale.diesel, m.meterCheck[0].diff, m.meterCheck[1].diff, m.T.cash, m.T.credit, m.T.coll, m.T.tcash, m.expTotal, m.deposits, m.expected, m.cashCounted ? m.counted : null, m.cashCounted ? m.cashDiff : null]);
+  const cols = ["Date", "Petrol L", "Diesel L", "Petrol meter L", "Diesel meter L", "Petrol diff L", "Diesel diff L", "Petrol received L", "Diesel received L", "Cash sales", "Credit sales", "Collections", "Total cash", "Expenses", "Bank deposit", "Expected cash", "Counted", "Difference"];
+  const rows = days.map(m => [dmy(m.date), r3(m.rec.petrol), r3(m.rec.diesel), m.meterSale.petrol, m.meterSale.diesel, m.meterCheck[0].diff, m.meterCheck[1].diff, m.received.petrol || null, m.received.diesel || null, m.T.cash, m.T.credit, m.T.coll, m.T.tcash, m.expTotal, m.deposits, m.expected, m.cashCounted ? m.counted : null, m.cashCounted ? m.cashDiff : null]);
   const tot = ["TOTAL"]; for (let c = 1; c < cols.length; c++) tot.push(r2(rows.reduce((s, r) => s + (num(r[c])), 0)));
   const cust = {};
   for (const m of days) for (const i of m.items) {
@@ -1148,6 +1236,12 @@ function dailyPdf(m) {
   doc.autoTable({startY: y, head: [["Meter check", "Reading B/F", "Today's sales", "C/B", "Actual reading", "Difference", "Status"]], body: m.meterCheck.map(c => { const st3 = c.status === "off" ? {fontStyle: "bold", fillColor: RED_SOFT, textColor: RED} : {}; return [FUEL[c.fuel], fmtL(c.start), fmtL(c.recorded), c.start == null ? "" : fmtL(r3(c.start + c.recorded)), fmtL(c.end), fmtL(c.diff), c.status === "off" ? "MISMATCH" : c.status === "ok" ? "OK" : "No reading"].map(v => ({content: v, styles: st3})); }),
     theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {1: R, 2: R, 3: R, 4: R, 5: R}});
   y = doc.lastAutoTable.finalY + 12;
+  if (m.receipts.length) {
+    doc.autoTable({startY: y, head: [["Stock received", "Fuel", "Tank", "D/N No.", "Supplier", "Vehicle", "Litres", "Amount", "Photos"]], body: [...m.receipts.map(x => { const st4 = (x.imgs || []).length ? {} : {fillColor: RED_SOFT, textColor: RED, fontStyle: "bold"}; return [hm(x.at), FUEL[x.fuel], tankName(x.tankId), x.dno || "", x.supplier || "", x.vehicle || "", fmtL(x.qty), x.amount ? n2(x.amount) : "", (x.imgs || []).length ? String(x.imgs.length) : "MISSING"].map(v => ({content: v, styles: st4})); }),
+      [{content: `Total received · Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L`, colSpan: 6, styles: {fontStyle: "bold"}}, {content: fmtL(r3(m.received.petrol + m.received.diesel)), styles: {fontStyle: "bold"}}, {content: n2(m.receipts.reduce((a, x) => a + num(x.amount), 0)), styles: {fontStyle: "bold"}}, ""]],
+      theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {6: R, 7: R}});
+    y = doc.lastAutoTable.finalY + 12;
+  }
   if (m.slips.length) {
     doc.autoTable({startY: y, head: [["Bank slip", "Account on slip", "Reference", "Amount", "Status"]], body: m.slips.map(s => [s.kind === "deposit" ? "Cash deposit" : "Transfer " + (s.customer || ""), (s.ai && s.ai.to_account_number) || "", (s.ai && s.ai.reference) || "", n2(s.amount), (STATUS[s.status] || ["", s.status])[1]]),
       theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {3: R}});
@@ -1227,6 +1321,12 @@ async function dailyXlsx(m) {
   const w3 = wb.addWorksheet("Sales Log"); w3.columns = [8, 14, 10, 24, 10, 9, 12, 10, 12, 10, 18, 26].map(w => ({width: w}));
   xTable(w3, 1, 1, ["Time", "Type", "Fuel", "Customer / item", "Qty (L)", "Rate", "Amount", "Payment", "PO No.", "D/No.", "Staff", "Remarks"],
     m.items.map(i => [hm(i.at), {cash: "Cash sale", credit: "Credit sale", collect: "Payment", other: "Other income"}[i.t], FUEL[i.fuel] || "", i.customer || i.desc || "", i.qty ?? "", i.rate ?? "", i.amount, i.t === "credit" ? "Credit" : (i.pay || "cash"), i.po || "", i.dno || "", nameOf(i.by), [i.note, i.remark, i.ref].filter(Boolean).join(" · ")]), {litreCols: [4]});
+  if (m.receipts.length) {
+    const w5 = wb.addWorksheet("Stock Received"); w5.columns = [8, 10, 18, 14, 22, 14, 12, 10, 12, 10, 18, 30].map(w => ({width: w}));
+    xTable(w5, 1, 1, ["Time", "Fuel", "Tank", "D/N No.", "Supplier", "Vehicle", "Litres", "Rate", "Amount", "Photos", "Received by", "Note"],
+      [...m.receipts.map(x => ({kind: (x.imgs || []).length ? "" : "bad", v: [hm(x.at), FUEL[x.fuel], tankName(x.tankId), x.dno || "", x.supplier || "", x.vehicle || "", num(x.qty), x.rate ? num(x.rate) : "", x.amount ? num(x.amount) : "", (x.imgs || []).length || "MISSING", nameOf(x.by), x.note || ""]})),
+       {kind: "total", v: ["Total", "", "", "", "", "", r3(m.received.petrol + m.received.diesel), "", r2(m.receipts.reduce((a, x) => a + num(x.amount), 0)), "", "", `Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L`]}], {litreCols: [6]});
+  }
   if (m.slips.length) {
     const w4 = wb.addWorksheet("Bank Slips"); w4.columns = [8, 16, 20, 18, 16, 12, 12, 16, 40].map(w => ({width: w}));
     xTable(w4, 1, 1, ["Time", "Type", "Customer", "Account on slip", "Reference", "Entered", "On slip", "Status", "Notes"], m.slips.map(s => [hm(s.at), s.kind === "deposit" ? "Cash deposit" : "Transfer", s.customer || "", (s.ai && s.ai.to_account_number) || "", (s.ai && s.ai.reference) || "", num(s.amount), s.ai && s.ai.amount != null ? num(s.ai.amount) : "", (STATUS[s.status] || ["", s.status])[1], s.note || ""]));
@@ -1360,6 +1460,14 @@ document.addEventListener("click", async e => {
       if (!S.day.closed && !confirmTap(b)) return;
       if (await patchDay(S.day.closed ? {closed: false, reopenedBy: S.me.id, reopenedAt: new Date().toISOString()} : {closed: true, closedBy: S.me.id, closedAt: new Date().toISOString()})) { toast(S.day.closed ? "Day reopened" : "Day closed"); setTimeout(renderAll, 300); }
       break;
+    case "rcFuel": S.sellFuel = b.dataset.fuel; ls.set("huvath.fuel", S.sellFuel); renderAll(); break;
+    case "rcView": viewReceipt(S.receipts.find(x => x.id === id)); break;
+    case "rcAddPhoto": S.sub.rcAddTo = id; $("#rcMore").click(); break;
+    case "rcDel": {
+      if (!confirmTap(b)) return; const x = S.receipts.find(r => r.id === id);
+      try { await S.db.doc("receipts/" + id).update({deleted: true, deletedBy: S.me.id, deletedAt: new Date().toISOString()}); toast("Delivery deleted"); } catch (er) { toast(dbErr(er)); }
+      break;
+    }
     case "viewSlip": {
       const s = S.slips.find(x => x.id === id); if (!s) return; const src = slipSrc(s); const ai = s.ai || {};
       openSheet(`<div class="stack"><div class="row between"><h3>${s.kind === "deposit" ? "Cash deposit" : "Customer transfer"} · MVR ${n2(s.amount)}</h3><button class="btn sm" data-close>Close</button></div>
@@ -1458,6 +1566,12 @@ document.addEventListener("change", async e => {
   const t = e.target;
   if (t.id === "dateIn") { setDate(t.value || todayStr()); return; }
   if (t.id === "crCust") { S.sub.crCust = t.value; crUpdate(true); return; }
+  if (t.id === "rcFiles") { $("#rcPrev").innerHTML = [...t.files].map((f, i) => `<span class="chip">Page ${i + 1}</span>`).join(""); return; }
+  if (t.id === "rcMore") {
+    const x = S.receipts.find(r => r.id === S.sub.rcAddTo); const files = [...t.files]; t.value = ""; if (!x || !files.length) return;
+    toast("Uploading…"); try { const ids = await saveReceiptImages(files, x.id); await S.db.doc("receipts/" + x.id).update({imgs: [...(x.imgs || []), ...ids]}); toast("Photo added"); } catch (er) { toast(dbErr(er)); }
+    return;
+  }
   if (t.id === "slFile" || t.id === "asFile") { const f = t.files[0]; const p = t.id === "slFile" ? $("#slPrev") : $("#asPrev"); if (f && p) { p.src = URL.createObjectURL(f); p.hidden = false; } return; }
   if (t.dataset.bind) {
     if (dayLocked() || dateLocked()) return;
@@ -1511,6 +1625,7 @@ async function handleForm(kind, f) {
     if (await patchDay({cheques: {[newId()]: {no: $("#chNo").value.trim(), amount: amt, by: S.me.id}}})) { f.reset(); toast("Cheque added"); }
   }
   if (kind === "slip") await submitSlip(f);
+  if (kind === "receipt") await submitReceipt(f);
   if (kind === "auth") await doAuth(f);
   if (kind === "alias") {
     const a = $("#aliasIn").value.trim(); if (!a) return;
@@ -1675,7 +1790,7 @@ async function doAuth(f) {
 }
 function teardown() {
   [...S.unsubs, ...S.dateUnsubs].forEach(u => { try { u(); } catch {} }); S.unsubs = []; S.dateUnsubs = [];
-  S.db = null; S.role = "none"; S.roles = {}; S.staff = {}; S.customers = {}; S.items = []; S.allItems = []; S.entryDocs = []; S.slips = []; S.day = {};
+  S.db = null; S.role = "none"; S.roles = {}; S.staff = {}; S.customers = {}; S.items = []; S.allItems = []; S.entryDocs = []; S.slips = []; S.receipts = []; S.day = {};
 }
 function startSession(u) {
   teardown(); S.db = makeDb(S.fs);
