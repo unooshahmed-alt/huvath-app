@@ -1,0 +1,1645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Huvath Fuel Sales</title>
+<meta name="theme-color" content="#0b6e63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: app shell — sticky top bar, single working column, bottom tab bar on phones / left rail on wide screens */
+:root{
+  --bg:#eef2f0; --surface:#ffffff; --surface-2:#f6f8f7; --ink:#15211e; --muted:#5a6b66; --line:#d6dfdb;
+  --accent:#0b6e63; --accent-ink:#ffffff; --accent-soft:#dcefeb;
+  --petrol:#c46a05; --petrol-soft:#fbecd8; --diesel:#2d5b8c; --diesel-soft:#dde8f4;
+  --good:#1d7a48; --good-soft:#ddf1e6; --warn:#9a6a10; --warn-soft:#f8ecd1; --bad:#b83226; --bad-soft:#f8dfdc;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1614; --surface:#16211f; --surface-2:#1b2826; --ink:#e4ece9; --muted:#93a59f; --line:#2b3a37;
+  --accent:#3db3a2; --accent-ink:#06201c; --accent-soft:#173a35;
+  --petrol:#f0a443; --petrol-soft:#3a2a14; --diesel:#80aee0; --diesel-soft:#1c2c3f;
+  --good:#52c78d; --good-soft:#163627; --warn:#e3b55a; --warn-soft:#3a2f16; --bad:#f0786a; --bad-soft:#3d1f1b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1614; --surface:#16211f; --surface-2:#1b2826; --ink:#e4ece9; --muted:#93a59f; --line:#2b3a37;
+  --accent:#3db3a2; --accent-ink:#06201c; --accent-soft:#173a35;
+  --petrol:#f0a443; --petrol-soft:#3a2a14; --diesel:#80aee0; --diesel-soft:#1c2c3f;
+  --good:#52c78d; --good-soft:#163627; --warn:#e3b55a; --warn-soft:#3a2f16; --bad:#f0786a; --bad-soft:#3d1f1b; color-scheme:dark}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.01em;margin:0;text-wrap:balance}
+h2{font-size:1.45rem}
+h3{font-size:1.1rem}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand .logo{width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+.brand b{font-family:var(--display);font-size:1.3rem;font-weight:700;letter-spacing:.02em;display:block;line-height:1}
+.brand small{color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.datebox{display:flex;align-items:center;gap:6px}
+.datebox input{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:6px 8px;font-variant-numeric:tabular-nums}
+@media (max-width:520px){.datebox label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.brand small{display:none}.datebox input{padding:5px 6px;font-size:.9rem}}
+.who{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.who img{width:28px;height:28px;border-radius:50%}
+.rolechip{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+/* shell */
+.shell{display:flex;min-height:calc(100% - 60px)}
+.rail{display:none}
+main{flex:1;min-width:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 110px;max-width:1080px;margin:0 auto;width:100%}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.nav button{flex:1;min-width:0;border:0;background:none;padding:8px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:.7rem;font-weight:600;cursor:pointer}
+.nav button svg{width:22px;height:22px}
+.nav button[aria-current="page"]{color:var(--accent)}
+@media (min-width:900px){
+  .nav{position:sticky;top:64px;bottom:auto;left:auto;right:auto;flex-direction:column;width:190px;height:calc(100vh - 64px);border-top:0;border-right:1px solid var(--line);padding:12px 8px;gap:2px;background:var(--surface)}
+  .nav button{flex:none;flex-direction:row;justify-content:flex-start;gap:10px;font-size:.92rem;padding:10px 12px;border-radius:8px}
+  .nav button[aria-current="page"]{background:var(--accent-soft)}
+  main{padding-bottom:40px}
+}
+
+/* blocks */
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>*{min-width:0}
+.between{justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card>h3{margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.kpi .l{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.kpi .v{font-family:var(--display);font-size:1.75rem;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:.8rem;color:var(--muted)}
+.kpi.petrol{border-top:3px solid var(--petrol)} .kpi.diesel{border-top:3px solid var(--diesel)}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.pagehead p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+
+/* forms */
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.8rem;font-weight:600;color:var(--muted);flex:1;min-width:120px}
+.in{width:100%;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:10px 11px;font-size:1rem;color:var(--ink)}
+.in:focus{border-color:var(--accent);outline:none;background:var(--surface)}
+textarea.in{min-height:70px;resize:vertical}
+.big{font-family:var(--mono);font-size:2rem;font-weight:700;padding:12px 14px;text-align:right}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn.sm{padding:5px 9px;font-size:.82rem}
+.btn.block{width:100%;padding:14px;font-size:1.05rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;padding:9px 8px;border-radius:7px;font-weight:600;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.fuelpick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fuelpick button{border:2px solid var(--line);background:var(--surface);border-radius:10px;padding:12px;text-align:left;cursor:pointer}
+.fuelpick button b{display:block;font-family:var(--display);font-size:1.35rem;font-weight:600}
+.fuelpick button span{font-size:.85rem;color:var(--muted)}
+.fuelpick button[data-fuel="petrol"][aria-pressed="true"]{border-color:var(--petrol);background:var(--petrol-soft)}
+.fuelpick button[data-fuel="diesel"][aria-pressed="true"]{border-color:var(--diesel);background:var(--diesel-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface-2);border-radius:99px;padding:7px 14px;font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums}
+.chip:hover{border-color:var(--accent)}
+.calc{font-family:var(--mono);font-size:1rem;background:var(--surface-2);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.calc b{font-size:1.25rem}
+
+/* lists */
+.list{display:flex;flex-direction:column}
+.li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.li:first-child{border-top:0}
+.li .main{min-width:0}
+.li .main b{font-weight:600}
+.li .main div{overflow-wrap:anywhere}
+.li .amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.li .acts{grid-column:1/-1;display:flex;gap:6px;justify-content:flex-end}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.dot.petrol{background:var(--petrol)} .dot.diesel{background:var(--diesel)} .dot.coll{background:var(--good)} .dot.other{background:var(--accent)}
+.pill{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.pill.good{background:var(--good-soft);color:var(--good)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.petrol{background:var(--petrol-soft);color:var(--petrol)} .pill.diesel{background:var(--diesel-soft);color:var(--diesel)}
+.empty{padding:22px 10px;text-align:center;color:var(--muted);font-size:.92rem}
+.banner{border-radius:var(--r);padding:12px 14px;font-size:.92rem;border:1px solid var(--line);background:var(--surface-2)}
+.banner.warn{background:var(--warn-soft);border-color:transparent;color:var(--ink)}
+.banner.bad{background:var(--bad-soft);border-color:transparent}
+.banner.good{background:var(--good-soft);border-color:transparent}
+
+/* meter odometer */
+.meter{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meter .in{font-family:var(--mono);font-weight:700;font-size:1.15rem;letter-spacing:.04em;text-align:right;background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.meter .in::placeholder{color:var(--muted)}
+.mstat{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:.9rem}
+.mstat span b{font-family:var(--mono)}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:var(--surface-2);font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.sec td{background:var(--accent-soft);color:var(--accent);font-weight:700;letter-spacing:.06em}
+tr.sub td{font-weight:600;background:var(--surface-2)}
+tr.meterrow td{font-style:italic;color:var(--muted)}
+tr.tot td{font-weight:700;border-top:2px solid var(--ink);background:var(--surface-2)}
+.rep-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 14px 10px}
+.rep-head b{font-family:var(--display);font-size:1.4rem}
+.denoms{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.denoms label{display:grid;grid-template-columns:52px 1fr;align-items:center;gap:6px;font-family:var(--mono);font-size:.9rem}
+
+/* overlay */
+.ov{position:fixed;inset:0;background:rgba(5,15,13,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:14px 14px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+@media (min-width:700px){.ov{align-items:center}.sheet{border-radius:14px}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:60;font-weight:600;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.slipimg{width:64px;height:64px;border-radius:8px;object-fit:cover;background:var(--surface-2);border:1px solid var(--line);cursor:pointer}
+.checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.splash{max-width:520px;margin:12vh auto;text-align:center;padding:0 16px}
+.splash h1{font-size:2.2rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.tile{text-align:left;cursor:pointer}
+.tile:hover{border-color:var(--accent)}
+details summary{cursor:pointer;font-weight:600}
+.cpick{position:relative}
+.cplist{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:40;background:var(--surface);border:1px solid var(--line);border-radius:8px;max-height:270px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.cplist button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:11px 12px;cursor:pointer;color:var(--ink)}
+.cplist button:first-child{border-top:0}
+.cplist button:hover,.cplist button:focus-visible{background:var(--accent-soft)}
+.cplist .empty{padding:12px}
+@media (prefers-reduced-motion:no-preference){.btn,.chip,.nav button{transition:background .15s,border-color .15s,color .15s}}
+</style>
+</head>
+<body>
+<div class="top" id="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 8h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg></div>
+    <div style="min-width:0"><b id="stName">Huvath</b><small id="stAddr">GA. Kanduhulhudhoo · Rep. of Maldives</small></div>
+  </div>
+  <div class="datebox" id="datebox"><label for="dateIn" class="small muted">Day</label><input type="date" id="dateIn"></div>
+  <div class="who" id="who"></div>
+</div>
+<div class="shell">
+  <nav class="nav" id="nav" aria-label="Sections"></nav>
+  <main id="main"><div class="splash"><h1>Huvath Fuel Sales</h1><p class="muted">Connecting to the station records…</p></div></main>
+</div>
+<div id="ovRoot"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = v => { const x = parseFloat(String(v ?? "").replace(/,/g, "")); return isFinite(x) ? x : 0; };
+const numOrNull = v => { if (v === "" || v == null) return null; const x = parseFloat(String(v).replace(/,/g, "")); return isFinite(x) ? x : null; };
+const r2 = v => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
+const r3 = v => Math.round((Number(v) + Number.EPSILON) * 1000) / 1000;
+const n2 = v => (Number(v) || 0).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const nL = v => (Number(v) || 0).toLocaleString("en-US", {maximumFractionDigits: 2});
+const nR = v => v == null || v === "" ? "" : Number(v).toLocaleString("en-US", {maximumFractionDigits: 3});
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const todayStr = () => ymd(new Date());
+const dmy = s => s ? s.split("-").reverse().join(".") : "";
+const hm = iso => { try { const d = new Date(iso); return pad(d.getHours()) + ":" + pad(d.getMinutes()); } catch { return ""; } };
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9-]/g, "");
+const ls = { get(k){ try { return localStorage.getItem(k); } catch { return null; } }, set(k,v){ try { localStorage.setItem(k, v); } catch {} } };
+const FUELS = ["petrol", "diesel"];
+const FUEL = {petrol: "Petrol", diesel: "Diesel"};
+const DENOMS = [500, 100, 50, 20, 10, 5, 2, 1];
+const ROLES = {owner: "Owner", manager: "Manager", cashier: "Cashier", accountant: "Accountant"};
+const ROLE_HELP = {
+  manager: "Everything except user access: sales, readings, slips, reports, customers, prices, close day.",
+  cashier: "Records sales, credit, payments, readings, expenses, cash count and slips for today. Edits own entries only.",
+  accountant: "Views every day, verifies bank slips, downloads reports. Cannot record sales."
+};
+const CAN = {
+  sell: ["owner","manager","cashier"], day: ["owner","manager","cashier"], slips: ["owner","manager","cashier","accountant"],
+  verify: ["owner","manager","accountant"], reports: ["owner","manager","accountant"], customers: ["owner","manager"],
+  viewCustomers: ["owner","manager","accountant"], settings: ["owner","manager"], users: ["owner"],
+  anyDate: ["owner","manager","accountant"], editAny: ["owner","manager"], closeDay: ["owner","manager"]
+};
+const DEFAULT_SETTINGS = {
+  station: "Huvath", address1: "GA. Kanduhulhudhoo", address2: "Rep. of Maldives", currency: "MVR",
+  prices: {petrol: 17.03, diesel: 15.10},
+  meters: [{id: "m1", name: "Petrol Meter", fuel: "petrol"}, {id: "m2", name: "Diesel Meter", fuel: "diesel"}],
+  tanks: [{id: "t1", name: "Tank 1", fuel: "petrol", capacity: 144000}, {id: "t2", name: "Tank 2", fuel: "diesel", capacity: 0}],
+  bankAccounts: [], quickL: [1, 2, 5, 10, 20], quickMVR: [20, 50, 100, 200, 500], meterTolerance: 0.5
+};
+const DEFAULT_CUSTOMERS = [["police-53",16.45,null],["police-61",16.93,null],["police-52",16.93,null],["SA-005",14,null],["MTCC (ailaa)",17.03,null],["sl-4",18.78,null],["ayaada",18.78,null],["council",16.55,15.1],["kanduhulhudhoo health center",17.03,null],["SL-5",null,16.88],["RTL-124",null,13.75],["leo trading",null,32.32],["leo eagle",null,32.32],["rull",null,16.55],["nafaa",null,15.1],["ufaa",null,14.34],["kanduhulhudhoo council",null,17]];
+const ICON = {
+  today: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  sell: '<path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M7 8h5M15 10h2a2 2 0 0 1 2 2v5a1.5 1.5 0 0 0 3 0V8l-3-3"/>',
+  credit: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
+  day: '<circle cx="12" cy="13" r="8"/><path d="M12 13l4-3M12 3v2"/>',
+  slips: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13l2 2 4-4"/>',
+  reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>'
+};
+const svg = (p, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+
+/* ---------- state ---------- */
+const S = {
+  db: null, user: null, assets: null, sample: null, downloads: null,
+  me: {id: null, name: "", email: null, avatar: "", isOwner: false}, role: "none",
+  settings: null, settingsLoaded: false, customers: {}, roles: {}, staff: {}, names: {},
+  date: todayStr(), entryDocs: [], items: [], allItems: [], day: {}, dayExists: false, prevDay: null, slips: [],
+  tab: ls.get("huvath.tab") || "today", sub: {}, unsubs: [], dateUnsubs: [], imgCache: {}, sellFuel: ls.get("huvath.fuel") || "petrol",
+  sellMode: "L", sellPay: "cash", creditMode: "sale", reportMode: "daily", moreView: null, writeBlocked: false
+};
+const st = () => S.settings || DEFAULT_SETTINGS;
+const can = k => (CAN[k] || []).includes(S.role);
+
+/* ---------- ui primitives ---------- */
+let toastT;
+function toast(msg) {
+  let t = $("#toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600);
+}
+function dbErr(e) {
+  const c = e && e.code;
+  if (c === "quota_exceeded") return "Storage is full. Ask the owner to remove old slip photos.";
+  if (c === "permission-denied" || c === "invalid_argument") return "You don't have permission to save here. Ask the owner to check your access.";
+  if (c === "resource_exhausted") return "Too many saves at once. Wait a moment and try again.";
+  return "Could not save. Check the connection and try again.";
+}
+function openSheet(html, onMount) {
+  const root = $("#ovRoot");
+  root.innerHTML = `<div class="ov" id="ov"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  $("#ov").addEventListener("click", e => { if (e.target.id === "ov" || e.target.closest("[data-close]")) closeSheet(); });
+  onMount && onMount($("#ov .sheet"));
+}
+function closeSheet() { $("#ovRoot").innerHTML = ""; }
+/* two-tap confirm for destructive buttons */
+function confirmTap(btn) {
+  if (btn.dataset.armed === "1") return true;
+  btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = "Tap again to confirm";
+  setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = old; } }, 3000);
+  return false;
+}
+function nameOf(id) {
+  if (!id) return "—";
+  const r = S.roles[id]; if (r && r.label) return r.label;
+  if (S.names[id]) return S.names[id];
+  const s = S.staff[id]; if (s && (s.name || s.alias)) return s.name || s.alias;
+  if (id === S.me.id) return S.me.name || "You";
+  return "Staff member";
+}
+let nameReq = new Set();
+async function resolveNames(ids) {
+  if (!S.user) return;
+  const want = [...new Set(ids.filter(id => id && !S.names[id] && !nameReq.has(id) && !String(id).startsWith("d_")))];
+  if (!want.length) return;
+  want.forEach(i => nameReq.add(i));
+  try {
+    const ps = await S.user.profiles(want); let changed = false;
+    for (const id of want) { const p = ps[id]; if (p && p.name) { S.names[id] = p.name; S.emails = S.emails || {}; if (p.email) S.emails[id] = p.email; changed = true; } }
+    if (changed) refreshLive();
+  } catch {}
+}
+
+/* ---------- data model: daily report (mirrors the Excel layout) ---------- */
+function flatten(docs) {
+  const out = [];
+  for (const d of docs) {
+    const items = d.items || {};
+    for (const [id, it] of Object.entries(items)) out.push({...it, id, _doc: d._id, _uid: d.uid});
+  }
+  return out.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+}
+function buildDaily({date, items, day, slips, settings, prevDay}) {
+  settings = settings || DEFAULT_SETTINGS; day = day || {}; slips = slips || [];
+  const live = items.filter(i => !i.deleted);
+  const rows = []; const T = {cash: 0, credit: 0, coll: 0, tcash: 0}; const rec = {petrol: 0, diesel: 0};
+  const recAmt = {petrol: 0, diesel: 0}; let transfers = 0;
+  const meters = (settings.meters || []).map(m => {
+    const dm = (day.meters || {})[m.id] || {}; const pm = prevDay && (prevDay.meters || {})[m.id] || {};
+    const start = dm.start ?? pm.end ?? null; const end = dm.end ?? null;
+    return {...m, start, end, startFromPrev: dm.start == null && pm.end != null, sale: start != null && end != null ? r3(end - start) : null};
+  });
+  const meterSale = {petrol: null, diesel: null};
+  for (const m of meters) if (m.sale != null) meterSale[m.fuel] = r3((meterSale[m.fuel] || 0) + m.sale);
+  for (const f of FUELS) {
+    rows.push({kind: "sec", name: FUEL[f].toUpperCase()});
+    const cr = live.filter(i => i.t === "credit" && i.fuel === f);
+    let q = 0, a = 0;
+    for (const i of cr) { rows.push({kind: "item", po: i.po, dno: i.dno, name: i.customer, qty: i.qty, rate: i.rate, credit: i.amount, remark: i.remark}); q += i.qty; a += i.amount; }
+    rows.push({kind: "sub", name: "Total credit", qty: r3(q), credit: r2(a)});
+    T.credit += a; rec[f] += q; recAmt[f] += a;
+    const groups = {};
+    for (const i of live.filter(i => i.t === "cash" && i.fuel === f)) {
+      const k = i.pay + "|" + i.rate; const g = groups[k] || (groups[k] = {pay: i.pay, rate: i.rate, qty: 0, amt: 0, n: 0});
+      g.qty += i.qty; g.amt += i.amount; g.n++;
+    }
+    const gl = Object.values(groups).sort((x, y) => (x.pay === y.pay ? x.rate - y.rate : x.pay === "cash" ? -1 : 1));
+    if (!gl.length) rows.push({kind: "cash", name: "Cash sales", qty: 0, rate: settings.prices[f], cash: 0, tcash: 0});
+    for (const g of gl) {
+      const isT = g.pay === "transfer";
+      rows.push({kind: "cash", name: isT ? "Transfer sales" : "Cash sales", qty: r3(g.qty), rate: g.rate, cash: r2(g.amt), tcash: isT ? null : r2(g.amt), remark: g.n + (g.n === 1 ? " bill" : " bills") + (isT ? " · bank transfer" : "")});
+      T.cash += g.amt; if (!isT) T.tcash += g.amt; else transfers += g.amt; rec[f] += g.qty; recAmt[f] += g.amt;
+    }
+    const ms = meterSale[f]; const diff = ms == null ? null : r3(ms - rec[f]);
+    rows.push({kind: "meter", name: FUEL[f] + " meter total", qty: ms, remark: ms == null ? "Meter reading not entered" : `Recorded ${nL(rec[f])} L · difference ${diff > 0 ? "+" : ""}${nL(diff)} L`});
+  }
+  rows.push({kind: "sec", name: "OTHER COLLECTION"});
+  const colls = live.filter(i => i.t === "collect"); const others = live.filter(i => i.t === "other");
+  for (const i of colls) {
+    const isT = i.pay === "transfer";
+    rows.push({kind: "item", name: i.customer, coll: i.amount, tcash: isT ? null : i.amount, remark: [isT ? "Bank transfer" : "", i.ref, i.remark].filter(Boolean).join(" · ")});
+    T.coll += i.amount; if (!isT) T.tcash += i.amount; else transfers += i.amount;
+  }
+  for (const i of others) {
+    const isT = i.pay === "transfer";
+    rows.push({kind: "item", name: i.desc, tcash: isT ? null : i.amount, remark: "Other income" + (isT ? " · bank transfer" : "")});
+    if (!isT) T.tcash += i.amount; else transfers += i.amount;
+  }
+  if (!colls.length && !others.length) rows.push({kind: "item", name: "—"});
+  Object.keys(T).forEach(k => T[k] = r2(T[k]));
+  rows.push({kind: "total", name: "TOTAL (MVR)", cash: T.cash, credit: T.credit, coll: T.coll, tcash: T.tcash});
+
+  const tanks = (settings.tanks || []).map(t => {
+    const dt = (day.tanks || {})[t.id] || {}; const pt = prevDay && (prevDay.tanks || {})[t.id] || {};
+    const bf = dt.bf ?? pt.cb ?? null; const loaded = dt.loaded ?? null; const cb = dt.cb ?? null;
+    return {...t, sounding: dt.sounding ?? null, bf, loaded, cb, usage: bf != null && cb != null ? r3(bf + (loaded || 0) - cb) : null};
+  });
+  const expenses = Object.entries(day.expenses || {}).filter(([, e]) => e && !e.deleted).map(([id, e]) => ({id, ...e})).sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const expTotal = r2(expenses.reduce((s, e) => s + num(e.amount), 0));
+  const okSlips = slips.filter(s => s.status !== "rejected");
+  const deposits = r2(okSlips.filter(s => s.kind === "deposit").reduce((s, x) => s + num(x.amount), 0));
+  const transferSlips = r2(okSlips.filter(s => s.kind === "transfer").reduce((s, x) => s + num(x.amount), 0));
+  const cashCounts = day.cash || {};
+  const denoms = DENOMS.map(d => ({d, n: num(cashCounts[d]), v: r2(d * num(cashCounts[d]))}));
+  const coins = r2(num(cashCounts.coins));
+  const notesTotal = r2(denoms.reduce((s, x) => s + x.v, 0) + coins);
+  const cheques = Object.entries(day.cheques || {}).filter(([, c]) => c && !c.deleted).map(([id, c]) => ({id, ...c}));
+  const chequeTotal = r2(cheques.reduce((s, c) => s + num(c.amount), 0));
+  const counted = r2(notesTotal + chequeTotal);
+  const expected = r2(T.tcash - expTotal - deposits);
+  const meterCheck = FUELS.map(f => {
+    const ms = meterSale[f]; const diff = ms == null ? null : r3(ms - rec[f]);
+    const tol = settings.meterTolerance ?? 0.5;
+    return {fuel: f, start: meters.filter(m => m.fuel === f).map(m => m.start).reduce((a, b) => a == null || b == null ? null : a + b, 0),
+      end: meters.filter(m => m.fuel === f).map(m => m.end).reduce((a, b) => a == null || b == null ? null : a + b, 0),
+      recorded: r3(rec[f]), meter: ms, diff, value: diff == null ? null : r2(diff * (settings.prices[f] || 0)),
+      status: diff == null ? "pending" : Math.abs(diff) <= tol ? "ok" : "off"};
+  });
+  return {date, settings, rows, T, rec, recAmt, meters, meterSale, meterCheck, tanks, expenses, expTotal, deposits, transfers: r2(transfers), transferSlips,
+    denoms, coins, notesTotal, cheques, chequeTotal, counted, expected, cashDiff: r2(counted - expected), cashCounted: counted > 0,
+    slips, notes: day.notes || "", closed: !!day.closed, closedBy: day.closedBy, items: live, count: live.length};
+}
+
+/* ---------- db wiring ---------- */
+function subscribeGlobal() {
+  const db = S.db;
+  S.unsubs.push(db.doc("config/settings").onSnapshot(s => {
+    S.settings = s.exists ? {...DEFAULT_SETTINGS, ...s.data()} : null; S.settingsLoaded = true;
+    if (!s.exists && S.me.isOwner && !(s.metadata && s.metadata.fromCache)) db.doc("config/settings").set(DEFAULT_SETTINGS).catch(() => {});
+    $("#stName").textContent = st().station || "Huvath";
+    $("#stAddr").textContent = [st().address1, st().address2].filter(Boolean).join(" · ");
+    refreshLive();
+  }, onSubErr));
+  S.unsubs.push(db.doc("config/customers").onSnapshot(s => {
+    S.customers = s.exists ? (s.data().items || {}) : {}; refreshLive(); refreshCustomerSelects();
+    // first owner sign-in: load the customers from the original sales sheet
+    if (!s.exists && S.me.isOwner && !(s.metadata && s.metadata.fromCache)) {
+      const items = {}; DEFAULT_CUSTOMERS.forEach(([name, p, d], i) => items["c" + pad(i + 1)] = {name, petrolRate: p, dieselRate: d, active: true});
+      db.doc("config/customers").set({items}).catch(() => {});
+    }
+  }, onSubErr));
+  S.unsubs.push(db.doc("config/roles").onSnapshot(s => {
+    S.roles = s.exists ? (s.data().users || {}) : {};
+    const prev = S.role; computeRole();
+    if (prev === "none" && S.role !== "none") subscribeDate();
+    if (prev !== S.role) renderAll(); else refreshLive();
+    resolveNames(Object.keys(S.roles));
+  }, onSubErr));
+  S.unsubs.push(db.collection("staff").onSnapshot(s => {
+    S.staff = {}; s.docs.forEach(d => S.staff[d.id] = d.data()); refreshLive(); resolveNames(Object.keys(S.staff));
+  }, onSubErr));
+}
+function onSubErr(e) { if (e && e.code === "permission-denied") return; if (e && e.code === "revoked") { $("#main").innerHTML = `<div class="splash"><h2>Access changed</h2><p class="muted">Reload the page to continue.</p></div>`; } }
+function computeRole() {
+  if (S.me.isOwner) { S.role = "owner"; return; }
+  const r = S.me.id && S.roles[S.me.id]; S.role = r && ROLES[r.role] ? r.role : "none";
+  if (!can("anyDate") && S.date !== todayStr()) setDate(todayStr());
+}
+function subscribeDate() {
+  S.dateUnsubs.forEach(u => { try { u(); } catch {} }); S.dateUnsubs = [];
+  const db = S.db, D = S.date;
+  S.entryDocs = []; S.items = []; S.day = {}; S.dayExists = false; S.slips = []; S.prevDay = null;
+  S.dateUnsubs.push(db.collection("entries").where("date", "==", D).onSnapshot(s => {
+    S.entryDocs = s.docs.map(d => ({...d.data(), _id: d.id})); S.allItems = flatten(S.entryDocs); S.items = S.allItems.filter(i => !i.deleted);
+    refreshLive(); resolveNames(S.allItems.map(i => i.by));
+  }, onSubErr));
+  S.dateUnsubs.push(db.doc("days/" + D).onSnapshot(s => { S.dayExists = s.exists; S.day = s.exists ? s.data() : {}; refreshLive(); syncBinds(); }, onSubErr));
+  S.dateUnsubs.push(db.collection("slips").where("date", "==", D).onSnapshot(s => {
+    S.slips = s.docs.map(d => ({...d.data(), id: d.id})).sort((a, b) => String(b.at).localeCompare(String(a.at))); refreshLive();
+  }, onSubErr));
+  db.collection("days").where("date", "<", D).orderBy("date", "desc").limit(1).get().then(q => {
+    if (D !== S.date) return; S.prevDay = q.docs[0] ? q.docs[0].data() : null; refreshLive(); syncBinds();
+  }).catch(() => {});
+}
+function setDate(d) {
+  if (!d) return; S.date = d; $("#dateIn").value = d; if (S.db && S.role !== "none") { subscribeDate(); renderAll(); }
+}
+const model = () => buildDaily({date: S.date, items: S.items, day: S.day, slips: S.slips, settings: st(), prevDay: S.prevDay});
+
+/* entries: one document per person per day (sharded), items merged by id */
+async function addItem(item) {
+  if (S.writeBlocked) { toast("Your account can't save. Ask the owner for access."); return false; }
+  const D = S.date; const id = newId();
+  const mine = S.entryDocs.filter(d => d.uid === S.me.id).sort((a, b) => (a.shard || 0) - (b.shard || 0));
+  let shard = mine.length ? (mine[mine.length - 1].shard || 0) : 0;
+  const last = mine[mine.length - 1];
+  if (last && Object.keys(last.items || {}).length >= 700) shard++;
+  const docId = `${D}_${S.me.id}_${shard}`; const ref = S.db.doc("entries/" + docId);
+  const full = {...item, by: S.me.id, at: new Date().toISOString()};
+  /* merge-write: creates the doc if needed; resolves when the server confirms, but the
+     local copy updates at once, so the sale shows immediately even when offline */
+  ref.update({date: D, uid: S.me.id, shard, items: {[id]: full}}).catch(e => toast(dbErr(e)));
+  return true;
+}
+async function patchItem(it, patch) {
+  S.db.doc("entries/" + it._doc).update({items: {[it.id]: {...patch, editedBy: S.me.id, editedAt: new Date().toISOString()}}}).catch(e => toast(dbErr(e)));
+  return true;
+}
+async function patchDay(patch) {
+  S.db.doc("days/" + S.date).update({date: S.date, ...patch}).catch(e => toast(dbErr(e)));
+  return true;
+}
+const dayLocked = () => !!S.day.closed && !can("editAny");
+const dateLocked = () => !can("anyDate") && S.date !== todayStr();
+function canEditItem(it) {
+  if (!can("sell")) return false;
+  if (can("editAny")) return true;
+  return it.by === S.me.id && S.date === todayStr() && !S.day.closed;
+}
+
+/* ---------- rendering ---------- */
+const LIVE = {};
+function refreshLive() {
+  if (!S.db) return;
+  document.querySelectorAll("[data-live]").forEach(el => { const f = LIVE[el.dataset.live]; if (f) { try { el.innerHTML = f(el); } catch (e) { console.error(e); } } });
+  renderWho();
+}
+function renderWho() {
+  const w = $("#who"); if (!w) return;
+  if (!S.db) { w.innerHTML = ""; return; }
+  w.innerHTML = `<span class="rolechip">${esc(ROLES[S.role] || "No role")}</span><button class="btn sm" data-act="signOut" title="Sign out">Sign out</button>`;
+}
+function tabsFor() {
+  const t = [{id: "today", label: "Today"}];
+  if (can("sell")) t.push({id: "sell", label: "Sell"}, {id: "credit", label: "Credit"});
+  if (can("day")) t.push({id: "day", label: "Readings"});
+  if (can("slips")) t.push({id: "slips", label: "Slips"});
+  if (can("reports")) t.push({id: "reports", label: "Reports"});
+  t.push({id: "more", label: "More"});
+  return t;
+}
+function renderNav() {
+  const tabs = tabsFor(); if (!tabs.some(t => t.id === S.tab)) S.tab = "today";
+  $("#nav").innerHTML = S.role === "none" ? "" : tabs.map(t => `<button data-tab="${t.id}" ${S.tab === t.id ? 'aria-current="page"' : ""}>${svg(ICON[t.id])}<span>${t.label}</span></button>`).join("");
+}
+function renderAll() {
+  renderNav(); renderWho();
+  const di = $("#dateIn"); di.value = S.date; di.disabled = !can("anyDate"); di.max = can("anyDate") ? "" : todayStr();
+  const main = $("#main");
+  if (S.role === "none") { main.innerHTML = viewPending(); return; }
+  const v = {today: viewToday, sell: viewSell, credit: viewCredit, day: viewDay, slips: viewSlips, reports: viewReports, more: viewMore}[S.tab] || viewToday;
+  main.innerHTML = v(); refreshLive(); syncBinds(); refreshCustomerSelects();
+  window.scrollTo(0, 0);
+}
+function dayBanner() {
+  const parts = [];
+  if (S.day.closed) parts.push(`<div class="banner good">Day closed by ${esc(nameOf(S.day.closedBy))}. ${can("editAny") ? "Managers can still make corrections." : "Ask a manager if something needs fixing."}</div>`);
+  if (S.date !== todayStr()) parts.push(`<div class="banner warn">You are viewing <b>${dmy(S.date)}</b>, not today.</div>`);
+  return parts.join("");
+}
+
+/* --- pending (no role yet) --- */
+function viewPending() {
+  const alias = (S.staff[S.me.id] || {}).alias || "";
+  return `<div class="splash stack" style="text-align:left">
+    <h1>Waiting for access</h1>
+    ${S.me.ownerUnverified ? `<div class="banner warn">This is the owner's email. To unlock owner control, open the verification email we sent to <b>${esc(S.me.email)}</b>, click the link, then tap <b>I've verified</b>.<div class="row" style="margin-top:8px"><button class="btn pri sm" data-act="reloadUser">I've verified</button><button class="btn sm" data-act="resendVerify">Send the email again</button></div></div>` :
+    `<p>You're signed in as <b>${esc(S.me.email || "")}</b>, but the station owner hasn't given you a role yet. Your name now appears on the owner's Users page. Ask them to assign you as Manager, Cashier or Accountant.</p>`}
+    ${S.me.name ? `<p class="muted">Name: <b>${esc(S.me.name)}</b>.</p>` : `<form class="card stack" data-form="alias"><label class="f">Your name (so the owner can recognise you)<input class="in" id="aliasIn" value="${esc(alias)}" maxlength="40" required></label><button class="btn pri">Save name</button></form>`}
+    <p class="muted small">This page updates by itself once you have a role.</p><button class="btn" data-act="signOut">Sign out</button></div>`;
+}
+
+/* --- TODAY --- */
+function viewToday() {
+  return `<div class="stack">
+    <div class="pagehead"><div><h2>${S.date === todayStr() ? "Today" : dmy(S.date)}</h2><p>Live figures for ${dmy(S.date)} from every staff member.</p></div>
+      ${can("sell") && !dateLocked() ? `<button class="btn pri" data-tab="sell">${svg(ICON.sell, 18)} Record a sale</button>` : ""}</div>
+    ${dayBanner()}
+    <div class="kpis" data-live="kpis"></div>
+    <div class="grid2">
+      <div class="card"><h3>Meter check</h3><div data-live="meterCheck"></div></div>
+      <div class="card"><h3>Cash in hand</h3><div data-live="cashCheck"></div></div>
+    </div>
+    <div class="card"><div class="row between"><h3>Latest activity</h3><span class="small muted">Updates live</span></div><div class="list" data-live="feed"></div></div>
+  </div>`;
+}
+LIVE.kpis = () => {
+  const m = model(); const pend = S.slips.filter(s => ["review", "pending", "mismatch"].includes(s.status)).length;
+  const k = (cls, l, v, s) => `<div class="kpi ${cls}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  return k("petrol", "Petrol sold", nL(m.rec.petrol) + " L", "MVR " + n2(m.recAmt.petrol)) +
+    k("diesel", "Diesel sold", nL(m.rec.diesel) + " L", "MVR " + n2(m.recAmt.diesel)) +
+    k("", "Cash sales", n2(m.T.cash), "MVR · incl. transfers " + n2(m.transfers)) +
+    k("", "Credit sales", n2(m.T.credit), "MVR on account") +
+    k("", "Payments received", n2(m.T.coll), "MVR from credit customers") +
+    k("", "Expected cash", n2(m.expected), "after expenses & deposits") +
+    k("", "Bank slips", S.slips.length, pend ? `<span class="pill warn">${pend} to check</span>` : "all checked");
+};
+LIVE.meterCheck = () => {
+  const m = model();
+  return m.meterCheck.map(c => {
+    const pill = c.status === "pending" ? `<span class="pill">Reading missing</span>` : c.status === "ok" ? `<span class="pill good">Matches</span>` : `<span class="pill bad">${c.diff > 0 ? "Unrecorded " + nL(c.diff) + " L" : "Over-recorded " + nL(-c.diff) + " L"}</span>`;
+    return `<div class="li" style="grid-template-columns:auto 1fr auto"><span class="dot ${c.fuel}"></span><div class="main"><b>${FUEL[c.fuel]}</b>
+      <div class="small muted">Meter ${c.meter == null ? "—" : nL(c.meter) + " L"} · recorded ${nL(c.recorded)} L${c.value ? " · ≈ MVR " + n2(c.value) : ""}</div></div>${pill}</div>`;
+  }).join("") + (can("day") ? `<button class="btn sm" data-tab="day" style="margin-top:8px">Enter readings</button>` : "");
+};
+LIVE.cashCheck = () => {
+  const m = model();
+  const line = (l, v, b) => `<div class="row between" style="padding:3px 0"><span class="${b ? "" : "muted"}">${l}</span><span class="num" style="${b ? "font-weight:700" : ""}">${v}</span></div>`;
+  let st2 = "";
+  if (m.cashCounted) st2 = Math.abs(m.cashDiff) < 0.01 ? `<span class="pill good">Cash matches</span>` : `<span class="pill ${m.cashDiff < 0 ? "bad" : "warn"}">${m.cashDiff < 0 ? "Short" : "Over"} MVR ${n2(Math.abs(m.cashDiff))}</span>`;
+  return line("Cash taken (sales + payments)", n2(m.T.tcash)) + line("− Expenses", n2(m.expTotal)) + line("− Bank deposits", n2(m.deposits)) +
+    line("Expected in hand", n2(m.expected), true) + line("Counted (notes + cheques)", m.cashCounted ? n2(m.counted) : "not counted yet") + `<div style="margin-top:6px">${st2}</div>`;
+};
+function itemTitle(i) {
+  if (i.t === "cash") return `${FUEL[i.fuel]} ${nL(i.qty)} L${i.pay === "transfer" ? " · transfer" : ""}`;
+  if (i.t === "credit") return `${esc(i.customer)} · ${FUEL[i.fuel]} ${nL(i.qty)} L`;
+  if (i.t === "collect") return `Payment · ${esc(i.customer)}`;
+  return esc(i.desc || "Other income");
+}
+const dotCls = i => i.t === "collect" ? "coll" : i.t === "other" ? "other" : i.fuel;
+LIVE.feed = () => {
+  const it = [...S.items].reverse().slice(0, 25);
+  if (!it.length) return `<div class="empty">No sales recorded for ${dmy(S.date)} yet. Sales appear here the moment any staff member saves one.</div>`;
+  return it.map(i => `<div class="li"><span class="dot ${dotCls(i)}"></span><div class="main"><b>${itemTitle(i)}</b><div class="small muted">${hm(i.at)} · ${esc(nameOf(i.by))}${i.t === "credit" ? " · credit" : ""}</div></div><div class="amt">${n2(i.amount)}</div></div>`).join("");
+};
+
+/* --- SELL --- */
+function viewSell() {
+  if (dateLocked()) return `<div class="banner warn">Sales can only be recorded for today.</div>`;
+  const p = st().prices;
+  return `<div class="stack">
+    <div class="pagehead"><div><h2>Cash sale</h2><p>Record each sale as it happens — even 1 litre.</p></div></div>
+    ${dayBanner()}
+    <form class="card stack" data-form="sell" autocomplete="off">
+      <div class="fuelpick">${FUELS.map(f => `<button type="button" data-fuel="${f}" data-act="pickFuel" aria-pressed="${S.sellFuel === f}"><b>${FUEL[f]}</b><span class="num">MVR ${n2(p[f])} / L</span></button>`).join("")}</div>
+      <div class="seg" role="group" aria-label="Enter by"><button type="button" data-act="sellMode" data-v="L" aria-pressed="${S.sellMode === "L"}">Litres</button><button type="button" data-act="sellMode" data-v="MVR" aria-pressed="${S.sellMode === "MVR"}">Amount (MVR)</button></div>
+      <label class="f" for="sellVal"><span id="sellValLbl">${S.sellMode === "L" ? "Litres" : "Amount in MVR"}</span><input class="in big" id="sellVal" inputmode="decimal" placeholder="0" required></label>
+      <div class="chips" id="sellChips"></div>
+      <div class="row"><label class="f" style="max-width:160px">Rate (MVR/L)<input class="in num" id="sellRate" inputmode="decimal" value="${p[S.sellFuel]}"></label>
+        <label class="f">Note (optional)<input class="in" id="sellNote" placeholder="Vehicle / boat no." maxlength="60"></label></div>
+      <div class="seg" role="group" aria-label="Payment"><button type="button" data-act="sellPay" data-v="cash" aria-pressed="${S.sellPay === "cash"}">Cash</button><button type="button" data-act="sellPay" data-v="transfer" aria-pressed="${S.sellPay === "transfer"}">Bank transfer</button></div>
+      <div class="calc" id="sellCalc"></div>
+      <button class="btn pri block" id="sellBtn">Record sale</button>
+    </form>
+    <details class="card"><summary>Other income (not fuel)</summary>
+      <form class="stack" data-form="other" style="margin-top:12px" autocomplete="off">
+        <div class="row"><label class="f">Description<input class="in" id="othDesc" required maxlength="80" placeholder="e.g. Oil can"></label><label class="f" style="max-width:150px">Amount (MVR)<input class="in num" id="othAmt" inputmode="decimal" required></label></div>
+        <div class="row"><select class="in" id="othPay" style="max-width:200px"><option value="cash">Cash</option><option value="transfer">Bank transfer</option></select><button class="btn pri">Add income</button></div>
+      </form></details>
+    <div class="card"><div class="row between"><h3>Cash sales · ${dmy(S.date)}</h3><span class="small muted" data-live="sellTotals"></span></div><div class="list" data-live="sellList"></div></div>
+  </div>`;
+}
+function sellChips() {
+  const el = $("#sellChips"); if (!el) return;
+  const arr = S.sellMode === "L" ? st().quickL : st().quickMVR;
+  el.innerHTML = arr.map(v => `<button type="button" class="chip" data-act="quick" data-v="${v}">${S.sellMode === "L" ? v + " L" : "MVR " + v}</button>`).join("");
+}
+function sellCalc() {
+  const el = $("#sellCalc"); if (!el) return;
+  const v = num($("#sellVal").value), rate = num($("#sellRate").value);
+  let qty, amt;
+  if (S.sellMode === "L") { qty = v; amt = r2(v * rate); } else { amt = r2(v); qty = rate ? r3(v / rate) : 0; }
+  el.innerHTML = `<span>${nL(qty)} L × ${n2(rate)}</span><b>MVR ${n2(amt)}</b>`;
+  return {qty, amt, rate};
+}
+LIVE.sellTotals = () => { const c = S.items.filter(i => i.t === "cash"); return FUELS.map(f => `${FUEL[f]} ${nL(c.filter(i => i.fuel === f).reduce((s, i) => s + i.qty, 0))} L`).join(" · "); };
+LIVE.sellList = () => listItems(S.items.filter(i => i.t === "cash" || i.t === "other"), "No cash sales yet today.");
+function listItems(arr, emptyMsg) {
+  if (!arr.length) return `<div class="empty">${emptyMsg}</div>`;
+  return [...arr].reverse().map(i => {
+    const ed = canEditItem(i);
+    const sub = [hm(i.at), esc(nameOf(i.by)), i.t === "credit" ? [i.po && "PO " + esc(i.po), i.dno && "D/No " + esc(i.dno)].filter(Boolean).join(" ") : "", i.note ? esc(i.note) : "", i.remark ? esc(i.remark) : "", i.ref ? "Ref " + esc(i.ref) : "", i.pay === "transfer" ? "transfer" : "", i.editedAt ? "edited" : ""].filter(Boolean).join(" · ");
+    const slip = S.slips.find(x => x.entryId === i.id) || (i.slipId && S.slips.find(x => x.id === i.slipId));
+    const needsSlip = (i.pay === "transfer" || i.t === "collect") && can("slips");
+    const slipPill = slip ? ` <span class="pill ${(STATUS[slip.status] || [""])[0]}">Slip: ${(STATUS[slip.status] || ["", slip.status])[1]}</span>` : needsSlip && i.pay === "transfer" ? ` <span class="pill warn">No slip yet</span>` : "";
+    const slipBtn = slip ? `<button class="btn sm" data-act="viewSlip" data-id="${slip.id}">View slip</button>` : needsSlip && !dateLocked() && (can("sell") || can("verify")) ? `<button class="btn sm" data-act="addSlip" data-id="${i.id}">Add slip</button>` : "";
+    const acts = slipBtn + (ed ? `<button class="btn sm" data-act="editItem" data-id="${i.id}">Edit</button><button class="btn sm danger" data-act="delItem" data-id="${i.id}">Delete</button>` : "");
+    return `<div class="li"><span class="dot ${dotCls(i)}"></span><div class="main"><b>${itemTitle(i)}</b>${slipPill}<div class="small muted">${sub}</div></div><div class="amt">${n2(i.amount)}${i.rate ? `<div class="small muted">@ ${n2(i.rate)}</div>` : ""}</div>
+      ${acts ? `<div class="acts">${acts}</div>` : ""}</div>`;
+  }).join("");
+}
+
+/* --- CREDIT --- */
+/* searchable customer picker: hidden input holds the id, the visible box searches by name */
+function custPicker(id, sel) {
+  const c = sel && S.customers[sel];
+  return `<div class="cpick"><input type="hidden" id="${id}" value="${esc(sel || "")}" data-cust><input class="in" type="search" id="${id}_q" data-cpq="${id}" placeholder="Type to search customers…" value="${esc(c ? c.name : "")}" autocomplete="off" enterkeyhint="search"><div class="cplist" data-cpl="${id}" hidden></div></div>`;
+}
+function custMatches(q) {
+  q = q.trim().toLowerCase();
+  return Object.entries(S.customers).filter(([, c]) => c && c.name && c.active !== false && (!q || c.name.toLowerCase().includes(q)))
+    .sort((a, b) => { const x = a[1].name.toLowerCase(), y = b[1].name.toLowerCase(); return (q && !x.startsWith(q)) - (q && !y.startsWith(q)) || x.localeCompare(y); });
+}
+function showCustList(id) {
+  const q = document.getElementById(id + "_q"); const box = document.querySelector(`[data-cpl="${id}"]`); if (!q || !box) return;
+  const text = q.value.trim(); const m = custMatches(text).slice(0, 50);
+  const exact = m.some(([, c]) => c.name.toLowerCase() === text.toLowerCase());
+  const rate = c => [c.petrolRate != null ? "P " + n2(c.petrolRate) : "", c.dieselRate != null ? "D " + n2(c.dieselRate) : ""].filter(Boolean).join(" · ");
+  let html = m.map(([cid, c]) => `<button type="button" data-act="cpPick" data-for="${id}" data-id="${cid}"><span>${esc(c.name)}</span><span class="small muted num">${rate(c)}</span></button>`).join("");
+  if (!m.length) html = `<div class="empty">No customer matches “${esc(text)}”.</div>`;
+  if (can("customers") && text && !exact) html += `<button type="button" data-act="cpNew" data-for="${id}"><span>+ Add new customer “${esc(text)}”</span></button>`;
+  box.innerHTML = html; box.hidden = false;
+}
+function setCust(id, cid) {
+  const h = document.getElementById(id), q = document.getElementById(id + "_q"), box = document.querySelector(`[data-cpl="${id}"]`); if (!h) return;
+  const c = S.customers[cid]; h.value = c ? cid : ""; if (q) q.value = c ? c.name : ""; if (box) box.hidden = true;
+  h.dispatchEvent(new Event("change", {bubbles: true}));
+}
+function refreshCustomerSelects() {
+  document.querySelectorAll("input[data-cust]").forEach(h => { const q = document.getElementById(h.id + "_q"); const c = S.customers[h.value]; if (q && c && q !== document.activeElement) q.value = c.name; });
+}
+function viewCredit() {
+  if (dateLocked()) return `<div class="banner warn">Credit can only be recorded for today.</div>`;
+  const sale = S.creditMode === "sale";
+  return `<div class="stack">
+    <div class="pagehead"><div><h2>Credit customers</h2><p>Fuel given on account, and payments received against it.</p></div>${can("customers") ? `<button class="btn" data-act="goCustomers">Manage customers</button>` : ""}</div>
+    ${dayBanner()}
+    <div class="seg" role="group"><button type="button" data-act="creditMode" data-v="sale" aria-pressed="${sale}">Credit sale</button><button type="button" data-act="creditMode" data-v="collect" aria-pressed="${!sale}">Payment received</button></div>
+    ${sale ? `<form class="card stack" data-form="credit" autocomplete="off">
+      <label class="f">Customer${custPicker("crCust", S.sub.crCust)}</label>
+      <div class="fuelpick">${FUELS.map(f => `<button type="button" data-fuel="${f}" data-act="crFuel" aria-pressed="${S.sellFuel === f}"><b>${FUEL[f]}</b><span id="crRate_${f}" class="num">rate —</span></button>`).join("")}</div>
+      <div class="row"><label class="f">Litres<input class="in num" id="crQty" inputmode="decimal" required></label><label class="f">Rate (MVR/L)<input class="in num" id="crRate" inputmode="decimal" required></label></div>
+      <div class="row"><label class="f">PO No.<input class="in" id="crPo" maxlength="30"></label><label class="f">D/No.<input class="in" id="crDno" maxlength="30"></label></div>
+      <label class="f">Remarks<input class="in" id="crRem" maxlength="80"></label>
+      <div class="calc" id="crCalc"><span>0 L × 0.00</span><b>MVR 0.00</b></div>
+      <button class="btn pri block">Record credit sale</button></form>`
+    : `<form class="card stack" data-form="collect" autocomplete="off">
+      <label class="f">Customer${custPicker("coCust", "")}</label>
+      <div class="row"><label class="f">Amount (MVR)<input class="in num big" id="coAmt" inputmode="decimal" required></label></div>
+      <div class="row"><label class="f">Paid by<select class="in" id="coPay"><option value="cash">Cash</option><option value="transfer">Bank transfer</option><option value="cheque">Cheque</option></select></label><label class="f">Reference / cheque no.<input class="in" id="coRef" maxlength="40"></label></div>
+      <label class="f">Remarks<input class="in" id="coRem" maxlength="80"></label>
+      <button class="btn pri block">Record payment</button>
+      <p class="small muted" style="margin:0">Paid by transfer? Tap <b>Add slip</b> on the payment in the list below, now or later, so the account number is checked.</p></form>`}
+    <div class="card"><h3>Credit &amp; payments · ${dmy(S.date)}</h3><div class="list" data-live="creditList"></div></div>
+  </div>`;
+}
+LIVE.creditList = () => listItems(S.items.filter(i => i.t === "credit" || i.t === "collect"), "No credit sales or payments yet.");
+function crUpdate(fromCustomer) {
+  const id = $("#crCust")?.value; const c = S.customers[id];
+  FUELS.forEach(f => { const el = $("#crRate_" + f); if (el) el.textContent = "rate " + n2((c && num(c[f + "Rate"])) || st().prices[f]); });
+  if (fromCustomer && $("#crRate")) $("#crRate").value = (c && num(c[S.sellFuel + "Rate"])) || st().prices[S.sellFuel];
+  const q = num($("#crQty")?.value), r = num($("#crRate")?.value);
+  if ($("#crCalc")) $("#crCalc").innerHTML = `<span>${nL(q)} L × ${n2(r)}</span><b>MVR ${n2(q * r)}</b>`;
+}
+
+/* --- DAY / READINGS --- */
+function viewDay() {
+  const locked = dayLocked() || dateLocked();
+  const dis = locked ? "disabled" : "";
+  const s = st();
+  return `<div class="stack">
+    <div class="pagehead"><div><h2>Readings &amp; cash · ${dmy(S.date)}</h2><p>Start and end meter readings give the true litres sold. Values save when you leave a box.</p></div>
+      ${can("closeDay") ? `<button class="btn ${S.day.closed ? "" : "pri"}" data-act="toggleClose">${S.day.closed ? "Reopen day" : "Close day"}</button>` : ""}</div>
+    ${dayBanner()}
+    <div class="grid2">${s.meters.map(m => `<div class="card"><div class="row between"><h3>${esc(m.name)}</h3><span class="pill ${m.fuel}">${FUEL[m.fuel]}</span></div>
+      <div class="meter" style="margin-top:8px"><label class="f">Start reading<input class="in" inputmode="decimal" data-bind="meters.${m.id}.start" ${dis}></label><label class="f">End reading<input class="in" inputmode="decimal" data-bind="meters.${m.id}.end" ${dis}></label></div>
+      <div class="mstat" data-live="meter" data-id="${esc(m.id)}"></div></div>`).join("")}</div>
+    <div class="card"><h3>Tanks</h3><div class="tw"><table><thead><tr><th>Tank</th><th class="n">Sounding</th><th class="n">Bal. B/F (L)</th><th class="n">Loaded (L)</th><th class="n">Bal. C/B (L)</th><th class="n">Used (L)</th></tr></thead>
+      <tbody>${s.tanks.map(t => `<tr><td><b>${esc(t.name)}</b><div class="small muted">${FUEL[t.fuel]}${t.capacity ? " · cap. " + nL(t.capacity) + " L" : ""}</div></td>
+        ${["sounding", "bf", "loaded", "cb"].map(k => `<td><input class="in num" style="width:110px;text-align:right" inputmode="decimal" data-bind="tanks.${t.id}.${k}" aria-label="${k}" ${dis}></td>`).join("")}<td class="n" data-live="tank" data-id="${esc(t.id)}"></td></tr>`).join("")}</tbody></table></div></div>
+    <div class="grid2">
+      <div class="card stack"><h3>Expenses</h3>
+        ${locked ? "" : `<form class="row" data-form="expense" autocomplete="off"><input class="in" id="exDesc" placeholder="What for" required maxlength="80" style="flex:2;min-width:140px"><input class="in num" id="exAmt" placeholder="MVR" inputmode="decimal" required style="flex:1;min-width:90px"><button class="btn">Add</button></form>`}
+        <div class="list" data-live="expList"></div></div>
+      <div class="card stack"><h3>Cheques in hand</h3>
+        ${locked ? "" : `<form class="row" data-form="cheque" autocomplete="off"><input class="in" id="chNo" placeholder="Cheque no. / bank" required maxlength="60" style="flex:2;min-width:140px"><input class="in num" id="chAmt" placeholder="MVR" inputmode="decimal" required style="flex:1;min-width:90px"><button class="btn">Add</button></form>`}
+        <div class="list" data-live="chqList"></div></div>
+    </div>
+    <div class="card stack"><h3>Cash count</h3><p class="small muted" style="margin:0">Count of each note in the drawer at closing.</p>
+      <div class="denoms">${DENOMS.map(d => `<label><span>${d} ×</span><input class="in num" inputmode="numeric" data-bind="cash.${d}" ${dis}></label>`).join("")}<label><span>Coins</span><input class="in num" inputmode="decimal" placeholder="MVR" data-bind="cash.coins" ${dis}></label></div>
+      <div data-live="cashCheck"></div></div>
+    <div class="card"><label class="f">Notes for this day<textarea class="in" data-bind="notes" ${dis}></textarea></label></div>
+  </div>`;
+}
+LIVE.meter = el => meterStat(el.dataset.id);
+function meterStat(id) {
+  const m = model(); const mt = m.meters.find(x => x.id === id); if (!mt) return "";
+  const c = m.meterCheck.find(x => x.fuel === mt.fuel);
+  return `<span>Meter sale <b>${mt.sale == null ? "—" : nL(mt.sale) + " L"}</b></span><span>Recorded <b>${nL(m.rec[mt.fuel])} L</b></span>${c && c.status !== "pending" ? `<span class="pill ${c.status === "ok" ? "good" : "bad"}">${c.status === "ok" ? "Matches" : "Diff " + (c.diff > 0 ? "+" : "") + nL(c.diff) + " L"}</span>` : ""}${mt.startFromPrev ? `<span class="small muted">Start carried from previous day</span>` : ""}`;
+}
+LIVE.tank = el => { const t = model().tanks.find(x => x.id === el.dataset.id); return t && t.usage != null ? nL(t.usage) : "—"; };
+LIVE.expList = () => {
+  const m = model(); const ed = !dayLocked() && !dateLocked();
+  if (!m.expenses.length) return `<div class="empty">No expenses for this day.</div>`;
+  return m.expenses.map(e => `<div class="li"><span class="dot"></span><div class="main"><b>${esc(e.desc)}</b><div class="small muted">${hm(e.at)} · ${esc(nameOf(e.by))}</div></div><div class="amt">${n2(e.amount)}</div>${ed && (can("editAny") || e.by === S.me.id) ? `<div class="acts"><button class="btn sm danger" data-act="delExp" data-id="${e.id}">Delete</button></div>` : ""}</div>`).join("") +
+    `<div class="row between" style="padding-top:8px;font-weight:700"><span>Total</span><span class="num">${n2(m.expTotal)}</span></div>`;
+};
+LIVE.chqList = () => {
+  const m = model(); const ed = !dayLocked() && !dateLocked();
+  if (!m.cheques.length) return `<div class="empty">No cheques.</div>`;
+  return m.cheques.map(c => `<div class="li"><span class="dot"></span><div class="main"><b>${esc(c.no)}</b></div><div class="amt">${n2(c.amount)}</div>${ed ? `<div class="acts"><button class="btn sm danger" data-act="delChq" data-id="${c.id}">Delete</button></div>` : ""}</div>`).join("");
+};
+function getPath(o, p) { return p.split(".").reduce((a, k) => a == null ? undefined : a[k], o); }
+function syncBinds() {
+  const m = S.db ? model() : null;
+  document.querySelectorAll("[data-bind]").forEach(el => {
+    if (el === document.activeElement) return;
+    const v = getPath(S.day, el.dataset.bind);
+    el.value = v == null ? "" : v;
+    if (m) {
+      const [kind, id, k] = el.dataset.bind.split(".");
+      if (kind === "meters" && k === "start") { const mt = m.meters.find(x => x.id === id); el.placeholder = mt && mt.startFromPrev ? String(mt.start) : "0"; }
+      if (kind === "tanks" && k === "bf") { const t = m.tanks.find(x => x.id === id); el.placeholder = t && t.bf != null && v == null ? String(t.bf) : ""; }
+    }
+  });
+}
+function nest(path, value) { const keys = path.split("."); const o = {}; let c = o; keys.forEach((k, i) => { if (i === keys.length - 1) c[k] = value; else c = c[k] = {}; }); return o; }
+
+/* --- SLIPS --- */
+function viewSlips() {
+  const accts = st().bankAccounts || [];
+  const canUp = can("sell") && !dateLocked();
+  return `<div class="stack">
+    <div class="pagehead"><div><h2>Bank slips · ${dmy(S.date)}</h2><p>Upload a photo of a deposit slip or transfer receipt. The app reads the text on it and checks the money went into the station's account.</p></div></div>
+    ${!accts.length ? `<div class="banner warn">No station bank account is set up yet, so slips can't be checked. ${can("settings") ? `<button class="btn sm" data-act="goSettings">Add bank account</button>` : "Ask a manager to add it in Settings."}</div>` : `<div class="banner">Checking against: ${accts.map(a => `<b class="mono">${esc(a.number)}</b> ${esc(a.bank || "")}`).join(", ")}</div>`}
+    ${canUp ? `<form class="card stack" data-form="slip" autocomplete="off">
+      <div class="seg" role="group"><button type="button" data-act="slipKind" data-v="deposit" aria-pressed="${(S.sub.slipKind || "deposit") === "deposit"}">Cash we deposited</button><button type="button" data-act="slipKind" data-v="transfer" aria-pressed="${S.sub.slipKind === "transfer"}">Customer paid by transfer</button></div>
+      <div class="row"><label class="f">Amount on slip (MVR)<input class="in num" id="slAmt" inputmode="decimal" required></label>
+        ${S.sub.slipKind === "transfer" ? `<label class="f">Customer (optional)${custPicker("slCust", "")}</label>` : ""}</div>
+      <label class="f">Slip photo or screenshot<input class="in" type="file" id="slFile" accept="image/*" required></label>
+      <img id="slPrev" alt="" hidden style="max-height:220px;border-radius:8px;object-fit:contain;align-self:flex-start">
+      <button class="btn pri block" id="slBtn">Upload and check</button>
+      <div id="slStatus" class="small muted" role="status"></div></form>` : ""}
+    <div class="card"><h3>Slips for this day</h3><div class="list" data-live="slipList"></div></div>
+  </div>`;
+}
+function slipSrc(s) {
+  if (s.img && s.img.asset) return "/_blob/" + s.img.asset;
+  if (s.img && s.img.doc) { if (S.imgCache[s.id]) return S.imgCache[s.id]; loadSlipImg(s.id); }
+  return "";
+}
+async function loadSlipImg(id) {
+  if (S.imgCache[id] !== undefined) return; S.imgCache[id] = "";
+  try { const g = await S.db.doc("slipimg/" + id).get(); if (g.exists) { S.imgCache[id] = g.data().data; refreshLive(); } } catch {}
+}
+const STATUS = {verified: ["good", "Verified"], approved: ["good", "Approved"], mismatch: ["bad", "Wrong account"], review: ["warn", "Needs review"], pending: ["warn", "Not checked"], rejected: ["bad", "Rejected"], checking: ["", "Checking…"]};
+LIVE.slipList = () => {
+  if (!S.slips.length) return `<div class="empty">No slips uploaded for ${dmy(S.date)}.</div>`;
+  return S.slips.map(s => {
+    const [cls, lbl] = STATUS[s.status] || ["", s.status]; const ai = s.ai || {}; const ch = s.checks || {};
+    const src = slipSrc(s);
+    const chk = (ok, txt) => ok == null ? "" : `<span class="pill ${ok ? "good" : "bad"}">${ok ? "✓" : "✗"} ${txt}</span>`;
+    return `<div class="li" style="grid-template-columns:auto 1fr auto">${src ? `<img class="slipimg" src="${esc(src)}" alt="Slip" data-act="viewSlip" data-id="${s.id}">` : `<div class="slipimg" data-act="viewSlip" data-id="${s.id}"></div>`}
+      <div class="main"><b>${s.kind === "deposit" ? "Cash deposit" : "Customer transfer"}${s.customer ? " · " + esc(s.customer) : ""}</b>
+        <div class="small muted">${hm(s.at)} · ${esc(nameOf(s.by))}${ai.bank ? " · " + esc(ai.bank) : ""}${ai.to_account_number ? ` · to <span class="mono">${esc(ai.to_account_number)}</span>` : ""}${ai.reference ? " · ref " + esc(ai.reference) : ""}</div>
+        <div class="checks">${chk(ch.account, "Account")}${chk(ch.amount, "Amount" + (ai.amount != null && !ch.amount ? " (slip " + n2(ai.amount) + ")" : ""))}${chk(ch.dup == null ? null : !ch.dup, ch.dup ? "Used before" : "New ref")}${chk(ch.date, "Date")}</div>
+        ${s.entryLabel ? `<div class="small">For: ${esc(s.entryLabel)}</div>` : ""}${s.note ? `<div class="small muted">${esc(s.note)}</div>` : ""}</div>
+      <div class="amt">${n2(s.amount)}<div><span class="pill ${cls}">${lbl}</span></div></div>
+      <div class="acts">${can("verify") && s.status !== "approved" ? `<button class="btn sm" data-act="slipSet" data-v="approved" data-id="${s.id}">Approve</button>` : ""}${can("verify") && s.status !== "rejected" ? `<button class="btn sm danger" data-act="slipSet" data-v="rejected" data-id="${s.id}">Reject</button>` : ""}${(can("verify") || s.by === S.me.id) && S.sample && src ? `<button class="btn sm" data-act="slipRecheck" data-id="${s.id}">Check again</button>` : ""}${can("editAny") ? `<button class="btn sm danger" data-act="slipDel" data-id="${s.id}">Delete</button>` : ""}</div></div>`;
+  }).join("");
+};
+async function compressImage(file, max, q) {
+  let src, w, h;
+  try { src = await createImageBitmap(file); w = src.width; h = src.height; }
+  catch { const img = new Image(); img.src = URL.createObjectURL(file); await img.decode(); src = img; w = img.naturalWidth; h = img.naturalHeight; }
+  const sc = Math.min(1, max / Math.max(w, h)); const c = document.createElement("canvas"); c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(src, 0, 0, c.width, c.height);
+  return {blob: await new Promise(r => c.toBlob(r, "image/jpeg", q)), canvas: c};
+}
+const digits = s => String(s || "").replace(/\D/g, "");
+function matchAccount(extracted) {
+  const accts = st().bankAccounts || []; if (!extracted) return {ok: false, why: "No account number found on the slip"};
+  const raw = String(extracted); const d = digits(raw); const masked = /[*xX•#]/.test(raw);
+  for (const a of accts) {
+    const ad = digits(a.number); if (!ad) continue;
+    if (d && d === ad) return {ok: true, acct: a};
+    if (masked && d.length >= 3) {
+      const tail = digits(raw.split(/[*xX•#]+/).pop()); const head = digits(raw.split(/[*xX•#]+/)[0]);
+      if (tail.length >= 3 && ad.endsWith(tail) && (!head || ad.startsWith(head))) return {ok: true, acct: a, partial: true};
+    }
+  }
+  return {ok: false, why: "Account number does not match the station's account"};
+}
+let tessP = null;
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (!tessP) tessP = new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"; sc.onload = res; sc.onerror = () => { tessP = null; rej({code: "ocr_load"}); }; document.head.appendChild(sc); });
+  return tessP;
+}
+async function runSlipCheck(slipId, blob, enteredAmt) {
+  await loadTesseract();
+  const r = await Tesseract.recognize(blob, "eng");
+  return parseSlipText((r && r.data && r.data.text) || "", (r && r.data && r.data.confidence) || 0, enteredAmt);
+}
+/* Reads account number, amount, reference, date and bank from OCR text */
+function parseSlipText(text, conf, entered) {
+  const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const fixTok = t => t.replace(/[OoQD]/g, "0").replace(/[Il|]/g, "1").replace(/S/g, "5").replace(/B/g, "8");
+  const cands = [];
+  for (const l of lines) {
+    for (const t of (l.match(/[0-9OoIlSB*xX•#][0-9OoIlSB*xX•#\s-]{4,}[0-9OoIlSB]/g) || [])) {
+      const compact = t.replace(/[\s-]/g, ""); const dCount = (compact.match(/\d/g) || []).length;
+      if (dCount < compact.length * 0.6) continue;
+      const f = fixTok(compact);
+      if (/^[0-9*xX•#]+$/.test(f) && f.length >= 7 && dCount >= 4) cands.push({raw: f, line: l});
+    }
+  }
+  let acct = null;
+  for (const c of cands) if (matchAccount(c.raw).ok) { acct = c.raw; break; }
+  if (!acct) { // the station's account may be split across a line by spaces
+    for (const a of (st().bankAccounts || [])) { const ad = digits(a.number); if (ad.length >= 6 && lines.some(l => digits(fixTok(l)).includes(ad))) { acct = a.number; break; } }
+  }
+  if (!acct && cands.length) {
+    const kw = /(to|benef|credit|account|a\/c|acc|deposit)/i;
+    acct = (cands.find(c => kw.test(c.line)) || cands.sort((x, y) => y.raw.length - x.raw.length)[0]).raw;
+  }
+  const amounts = [];
+  const amtRe = /(?:MVR|MRF|Rf|RF)?\s*(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2})/g; let m;
+  while ((m = amtRe.exec(text))) amounts.push(num(m[1]));
+  const curRe = /(?:MVR|MRF|Rf)\.?\s*(\d+(?:\.\d{1,2})?)/gi;
+  while ((m = curRe.exec(text))) amounts.push(num(m[1]));
+  const amount = amounts.find(x => Math.abs(x - entered) < 0.01) ?? (amounts.length ? Math.max(...amounts) : null);
+  const refM = text.match(/(?:ref(?:erence)?|transaction\s*(?:id|no|number)?|txn|trace|receipt)\s*(?:no\.?|number|id|#)?\s*[:#.\-]?\s*([A-Z0-9][A-Z0-9\-]{4,})/i);
+  const dM = text.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/);
+  let date = null;
+  if (dM) { let [, d, mo, y] = dM; if (y.length === 2) y = "20" + y; if (+mo <= 12 && +d <= 31) date = `${y}-${pad(+mo)}-${pad(+d)}`; }
+  const banks = [["Bank of Maldives", /bank of maldives|\bBML\b/i], ["MIB", /maldives islamic|\bMIB\b/i], ["SBI", /state bank|\bSBI\b/i], ["CBM", /commercial bank|\bCBM\b/i], ["HBL", /habib|\bHBL\b/i], ["MCB", /\bMCB\b|mauritius/i]];
+  const bank = (banks.find(([, re]) => re.test(text)) || [null])[0];
+  return {is_slip: text.trim().length >= 15, bank, to_account_number: acct, to_account_name: null, from_name: null, amount, currency: "MVR", date,
+    reference: refM ? refM[1] : null, confidence: conf >= 75 ? "high" : conf >= 55 ? "medium" : "low", notes: "", text: text.slice(0, 3000), engine: "ocr"};
+}
+async function evaluateSlip(id, ai, enteredAmt) {
+  const am = matchAccount(ai && ai.to_account_number);
+  const amtOk = ai && ai.amount != null ? Math.abs(num(ai.amount) - enteredAmt) < 0.01 : false;
+  const ref = ai && ai.reference ? String(ai.reference).trim() : "";
+  let dup = false;
+  if (ref) { try { const q = await S.db.collection("slips").where("ref", "==", ref).limit(5).get(); dup = q.docs.some(d => d.id !== id && d.data().status !== "rejected"); } catch {} }
+  let dateOk = null;
+  if (ai && ai.date && /^\d{4}-\d{2}-\d{2}$/.test(ai.date)) { const diff = Math.abs((new Date(ai.date) - new Date(S.date)) / 864e5); dateOk = diff <= 3; }
+  let status = "verified";
+  if (!ai || ai.is_slip === false) status = "review";
+  else if (!am.ok) status = "mismatch";
+  else if (!amtOk || dup || ai.confidence === "low" || dateOk === false) status = "review";
+  const notes = [];
+  if (ai && ai.is_slip === false) notes.push("The photo doesn't look like a bank slip.");
+  if (!am.ok) notes.push(am.why + ".");
+  if (am.partial) notes.push("Account matched on visible digits only.");
+  if (ai && ai.amount != null && !amtOk) notes.push(`Slip shows MVR ${n2(ai.amount)}, entered MVR ${n2(enteredAmt)}.`);
+  if (dup) notes.push("This reference number was already used on another slip.");
+  if (dateOk === false) notes.push(`Slip date ${dmy(ai.date)} is far from ${dmy(S.date)}.`);
+  if (ai && ai.confidence === "low") notes.push("Photo is hard to read.");
+  return {status, checks: {account: am.ok, amount: amtOk, dup: ref ? dup : null, date: dateOk}, note: notes.join(" "), ref: ref || null};
+}
+
+/* --- REPORTS --- */
+function viewReports() {
+  const m = S.reportMode;
+  const seg = [["daily", "Daily report"], ["range", "Date range"], ["statement", "Customer statement"], ["log", "Changes log"]];
+  let body = "";
+  if (m === "daily") body = `<div class="row"><button class="btn pri" data-act="dlDaily" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlDaily" data-f="xlsx">Download Excel</button><span class="small muted">Same layout as your daily sales sheet.</span></div><div data-live="dailyReport"></div>`;
+  if (m === "range") body = `<form class="card row" data-form="range"><label class="f">From<input class="in" type="date" id="rgFrom" value="${S.sub.rgFrom || S.date.slice(0, 8) + "01"}" required></label><label class="f">To<input class="in" type="date" id="rgTo" value="${S.sub.rgTo || S.date}" required></label><button class="btn pri" style="align-self:flex-end">Show</button></form><div id="rangeOut">${S.sub.rangeHtml || ""}</div>`;
+  if (m === "statement") body = `<form class="card row" data-form="statement"><label class="f" style="flex:2">Customer${custPicker("stCust", S.sub.stCust)}</label><label class="f">From<input class="in" type="date" id="stFrom" value="${S.sub.stFrom || S.date.slice(0, 8) + "01"}" required></label><label class="f">To<input class="in" type="date" id="stTo" value="${S.sub.stTo || S.date}" required></label><button class="btn pri" style="align-self:flex-end">Show</button></form><div id="stOut">${S.sub.stHtml || ""}</div>`;
+  if (m === "log") body = `<div class="card"><h3>Edited and deleted entries · ${dmy(S.date)}</h3><div class="list" data-live="changeLog"></div></div>`;
+  return `<div class="stack"><div class="pagehead"><div><h2>Reports</h2><p>Download as PDF or Excel.</p></div></div>
+    <div class="seg" role="group" style="flex-wrap:wrap">${seg.map(([k, l]) => `<button type="button" data-act="reportMode" data-v="${k}" aria-pressed="${m === k}">${l}</button>`).join("")}</div>${body}</div>`;
+}
+const cell = (v, n) => `<td class="${n ? "n" : ""}">${v == null || v === "" ? "" : n ? (typeof v === "number" ? (n === "L" ? nR(v) : n2(v)) : esc(v)) : esc(v)}</td>`;
+function dailyHtml(m) {
+  const s = m.settings;
+  const rows = m.rows.map(r => {
+    if (r.kind === "sec") return `<tr class="sec"><td colspan="10">${esc(r.name)}</td></tr>`;
+    const cls = {sub: "sub", meter: "meterrow", total: "tot", cash: "sub"}[r.kind] || "";
+    return `<tr class="${cls}">${cell(r.po)}${cell(r.dno)}${cell(r.name)}${cell(r.qty, "L")}${cell(r.rate, 1)}${cell(r.cash, 1)}${cell(r.credit, 1)}${cell(r.coll, 1)}${cell(r.tcash, 1)}${cell(r.remark)}</tr>`;
+  }).join("");
+  const mt = m.meters.map(x => `<tr><td>${esc(x.name)}</td><td class="n">${nR(x.start)}</td><td class="n">${nR(x.end)}</td><td class="n">${x.sale == null ? "" : nR(x.sale)}</td></tr>`).join("");
+  const tk = m.tanks.map(t => `<tr><td>${esc(t.name)}</td><td>${FUEL[t.fuel]}</td><td class="n">${nR(t.sounding)}</td><td class="n">${nR(t.bf)}</td><td class="n">${nR(t.cb)}</td><td class="n">${nR(t.loaded)}</td><td class="n">${nR(t.usage)}</td></tr>`).join("");
+  const ex = m.expenses.map(e => `<tr><td>${esc(e.desc)}</td><td class="n">${n2(e.amount)}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">None</td></tr>`;
+  const mc = m.meterCheck.map(c => `<tr><td>${FUEL[c.fuel]}</td><td class="n">${nR(c.start)}</td><td class="n">${nR(c.recorded)}</td><td class="n">${c.start == null ? "" : nR(r3(c.start + c.recorded))}</td><td class="n">${nR(c.end)}</td><td class="n">${c.diff == null ? "" : nR(c.diff)}</td></tr>`).join("");
+  return `<div class="card" style="padding:0;overflow:hidden">
+    <div class="rep-head"><div><b>${esc(s.station)}</b><div class="small muted">${esc(s.address1)}<br>${esc(s.address2)}</div></div><div style="text-align:right"><b>Daily Sales Report</b><div class="mono">${dmy(m.date)}</div></div></div>
+    <div class="tw" style="border-radius:0;border-left:0;border-right:0"><table><thead><tr><th>PO No.</th><th>D/No.</th><th>Customer name</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Cash sales</th><th class="n">Credit sales</th><th class="n">Credit collection</th><th class="n">Total cash</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="grid2" style="padding:14px">
+      <div class="tw"><table><thead><tr><th>Meter name</th><th class="n">Start</th><th class="n">End</th><th class="n">Sale (L)</th></tr></thead><tbody>${mt}</tbody></table></div>
+      <div class="tw"><table><thead><tr><th>Expenses</th><th class="n">Amount</th></tr></thead><tbody>${ex}<tr class="tot"><td>Total</td><td class="n">${n2(m.expTotal)}</td></tr></tbody></table></div>
+    </div>
+    <div style="padding:0 14px 14px" class="stack">
+      <div class="tw"><table><thead><tr><th>Tank No.</th><th>Fuel</th><th class="n">Start sounding</th><th class="n">Bal. B/F</th><th class="n">Bal. C/B</th><th class="n">Qty loaded</th><th class="n">Used</th></tr></thead><tbody>${tk}</tbody></table></div>
+      <div class="grid2">
+        <div class="tw"><table><thead><tr><th colspan="2">Cash summary</th></tr></thead><tbody>
+          <tr><td>Total cash</td><td class="n">${n2(m.T.tcash)}</td></tr><tr><td>Expenses</td><td class="n">${n2(m.expTotal)}</td></tr><tr><td>Bank deposit</td><td class="n">${n2(m.deposits)}</td></tr>
+          <tr><td>Bank transfers received</td><td class="n">${n2(m.transfers)}</td></tr><tr class="sub"><td>Cash at hand (expected)</td><td class="n">${n2(m.expected)}</td></tr>
+          <tr><td>Cash &amp; cheque counted</td><td class="n">${m.cashCounted ? n2(m.counted) : "—"}</td></tr><tr class="tot"><td>Difference</td><td class="n">${m.cashCounted ? n2(m.cashDiff) : "—"}</td></tr></tbody></table></div>
+        <div class="tw"><table><thead><tr><th>Meter check</th><th class="n">B/F</th><th class="n">Today's sales</th><th class="n">C/B</th><th class="n">Actual</th><th class="n">Diff.</th></tr></thead><tbody>${mc}</tbody></table></div>
+      </div>
+      ${m.notes ? `<div class="banner"><b>Notes:</b> ${esc(m.notes)}</div>` : ""}
+    </div></div>`;
+}
+LIVE.dailyReport = () => dailyHtml(model());
+LIVE.changeLog = () => {
+  const ch = S.allItems.filter(i => i.deleted || i.editedAt);
+  if (!ch.length) return `<div class="empty">No entries were edited or deleted on this day.</div>`;
+  return ch.map(i => `<div class="li"><span class="dot ${dotCls(i)}"></span><div class="main"><b>${itemTitle(i)}</b><div class="small muted">Recorded ${hm(i.at)} by ${esc(nameOf(i.by))} · ${i.deleted ? `<b>deleted</b> ${hm(i.deletedAt)} by ${esc(nameOf(i.deletedBy))}` : `edited ${hm(i.editedAt)} by ${esc(nameOf(i.editedBy))}`}</div></div><div class="amt">${n2(i.amount)}</div></div>`).join("");
+};
+async function fetchRange(from, to) {
+  const [eq, dq, sq] = await Promise.all([
+    S.db.collection("entries").where("date", ">=", from).where("date", "<=", to).get(),
+    S.db.collection("days").where("date", ">=", from).where("date", "<=", to).get(),
+    S.db.collection("slips").where("date", ">=", from).where("date", "<=", to).get()]);
+  const byDate = {};
+  const touch = d => byDate[d] || (byDate[d] = {docs: [], day: null, slips: []});
+  eq.docs.forEach(d => { const x = d.data(); touch(x.date).docs.push({...x, _id: d.id}); });
+  dq.docs.forEach(d => { const x = d.data(); touch(x.date).day = x; });
+  sq.docs.forEach(d => { const x = d.data(); touch(x.date).slips.push({...x, id: d.id}); });
+  const dates = Object.keys(byDate).sort(); let prev = null; const days = [];
+  for (const dt of dates) {
+    const b = byDate[dt]; const items = flatten(b.docs).filter(i => !i.deleted);
+    const m = buildDaily({date: dt, items, day: b.day || {}, slips: b.slips, settings: st(), prevDay: prev});
+    days.push(m); if (b.day) prev = b.day;
+  }
+  return days;
+}
+function rangeModel(days, from, to) {
+  const cols = ["Date", "Petrol L", "Diesel L", "Petrol meter L", "Diesel meter L", "Cash sales", "Credit sales", "Collections", "Total cash", "Expenses", "Bank deposit", "Expected cash", "Counted", "Difference"];
+  const rows = days.map(m => [dmy(m.date), r3(m.rec.petrol), r3(m.rec.diesel), m.meterSale.petrol, m.meterSale.diesel, m.T.cash, m.T.credit, m.T.coll, m.T.tcash, m.expTotal, m.deposits, m.expected, m.cashCounted ? m.counted : null, m.cashCounted ? m.cashDiff : null]);
+  const tot = ["TOTAL"]; for (let c = 1; c < cols.length; c++) tot.push(r2(rows.reduce((s, r) => s + (num(r[c])), 0)));
+  const cust = {};
+  for (const m of days) for (const i of m.items) {
+    if (i.t !== "credit" && i.t !== "collect") continue;
+    const k = i.customerId || i.customer; const c = cust[k] || (cust[k] = {name: i.customer, petrol: 0, diesel: 0, credit: 0, paid: 0});
+    if (i.t === "credit") { c[i.fuel] += i.qty; c.credit += i.amount; } else c.paid += i.amount;
+  }
+  const custRows = Object.values(cust).sort((a, b) => a.name.localeCompare(b.name)).map(c => [c.name, r3(c.petrol), r3(c.diesel), r2(c.credit), r2(c.paid), r2(c.credit - c.paid)]);
+  return {from, to, cols, rows, tot, custCols: ["Customer", "Petrol L", "Diesel L", "Credit sales", "Payments", "Net"], custRows};
+}
+function rangeHtml(R) {
+  const t = (cols, rows, tot) => `<div class="tw"><table><thead><tr>${cols.map((c, i) => `<th class="${i ? "n" : ""}">${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((v, i) => i ? `<td class="n">${v == null ? "" : String(cols[i]).includes(" L") ? nR(v) : n2(v)}</td>` : `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}${tot ? `<tr class="tot">${tot.map((v, i) => i ? `<td class="n">${String(cols[i]).includes(" L") ? nR(v) : n2(v)}</td>` : `<td>${v}</td>`).join("")}</tr>` : ""}</tbody></table></div>`;
+  return `<div class="stack"><div class="row"><button class="btn pri" data-act="dlRange" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlRange" data-f="xlsx">Download Excel</button></div>
+    <div class="card stack"><h3>Daily totals · ${dmy(R.from)} to ${dmy(R.to)}</h3>${R.rows.length ? t(R.cols, R.rows, R.tot) : `<div class="empty">No records in this period.</div>`}</div>
+    <div class="card stack"><h3>Credit customers</h3>${R.custRows.length ? t(R.custCols, R.custRows) : `<div class="empty">No credit activity.</div>`}</div></div>`;
+}
+async function statementModel(custId, from, to) {
+  const c = S.customers[custId] || {name: "?"};
+  const [before, within] = await Promise.all([S.db.collection("entries").where("date", "<", from).get(), S.db.collection("entries").where("date", ">=", from).where("date", "<=", to).get()]);
+  const pick = q => flatten(q.docs.map(d => ({...d.data(), _id: d.id}))).filter(i => !i.deleted && i.customerId === custId && (i.t === "credit" || i.t === "collect"));
+  const dateOf = q => { const m = {}; q.docs.forEach(d => Object.keys(d.data().items || {}).forEach(k => m[k] = d.data().date)); return m; };
+  const dm = {...dateOf(before), ...dateOf(within)};
+  let open = 0; pick(before).forEach(i => open += i.t === "credit" ? i.amount : -i.amount);
+  let bal = open; const rows = pick(within).sort((a, b) => (dm[a.id] + a.at).localeCompare(dm[b.id] + b.at)).map(i => {
+    bal += i.t === "credit" ? i.amount : -i.amount;
+    return [dmy(dm[i.id]), i.t === "credit" ? `${FUEL[i.fuel]} ${nL(i.qty)} L @ ${n2(i.rate)}` : "Payment" + (i.pay ? " (" + i.pay + ")" : ""), i.t === "credit" ? [i.po && "PO " + i.po, i.dno && "D/No " + i.dno].filter(Boolean).join(" ") : i.ref || "", i.t === "credit" ? i.amount : null, i.t === "collect" ? i.amount : null, r2(bal)];
+  });
+  return {name: c.name, from, to, open: r2(open), rows, close: r2(bal), cols: ["Date", "Details", "PO / Ref", "Credit", "Payment", "Balance"]};
+}
+function statementHtml(M) {
+  return `<div class="stack"><div class="row"><button class="btn pri" data-act="dlStmt" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlStmt" data-f="xlsx">Download Excel</button></div>
+  <div class="card stack"><h3>${esc(M.name)} · ${dmy(M.from)} to ${dmy(M.to)}</h3><div class="tw"><table><thead><tr>${M.cols.map((c, i) => `<th class="${i > 2 ? "n" : ""}">${c}</th>`).join("")}</tr></thead><tbody>
+  <tr class="sub"><td colspan="5">Opening balance</td><td class="n">${n2(M.open)}</td></tr>
+  ${M.rows.map(r => `<tr>${r.map((v, i) => i > 2 ? `<td class="n">${v == null ? "" : n2(v)}</td>` : `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}
+  <tr class="tot"><td colspan="5">Balance due</td><td class="n">${n2(M.close)}</td></tr></tbody></table></div></div></div>`;
+}
+
+/* --- exports --- */
+async function saveFile(filename, blob) {
+  const url = URL.createObjectURL(blob); const a = document.createElement("a");
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000); toast("Downloaded " + filename);
+}
+function pdfDoc(title, sub) {
+  if (!window.jspdf) throw new Error("PDF library didn't load. Check the connection and reload.");
+  const {jsPDF} = window.jspdf; const doc = new jsPDF({unit: "pt", format: "a4"}); const s = st();
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.text(s.station, 36, 42);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text([s.address1, s.address2].filter(Boolean), 36, 56);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(title, 559, 42, {align: "right"});
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text(sub, 559, 56, {align: "right"});
+  return doc;
+}
+function pdfFooter(doc) {
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120); doc.text(`Generated ${new Date().toLocaleString()} · ${nameOf(S.me.id)}`, 36, 820); doc.text(`Page ${i} of ${n}`, 559, 820, {align: "right"}); doc.setTextColor(0); }
+}
+const TEAL = [11, 110, 99], TINT = [220, 239, 235], GREY = [242, 245, 244];
+const fmtL = v => v == null || v === "" ? "" : nR(v); const fmtM = v => v == null || v === "" ? "" : n2(v);
+function dailyPdf(m) {
+  const doc = pdfDoc("Daily Sales Report", dmy(m.date));
+  const body = m.rows.map(r => {
+    if (r.kind === "sec") return [{content: r.name, colSpan: 10, styles: {fillColor: TINT, textColor: TEAL, fontStyle: "bold"}}];
+    const st2 = r.kind === "total" ? {fontStyle: "bold", fillColor: [225, 230, 228]} : r.kind === "meter" ? {fontStyle: "italic", textColor: 90} : (r.kind === "sub" || r.kind === "cash") ? {fontStyle: "bold", fillColor: GREY} : {};
+    return [r.po || "", r.dno || "", r.name || "", fmtL(r.qty), fmtM(r.rate), fmtM(r.cash), fmtM(r.credit), fmtM(r.coll), fmtM(r.tcash), r.remark || ""].map(c => ({content: c, styles: st2}));
+  });
+  const R = {halign: "right"};
+  doc.autoTable({startY: 70, head: [["PO No.", "D/No.", "Customer Name", "Qty", "Rate", "Cash Sales", "Credit Sales", "Credit Coll.", "Total Cash", "Remarks"]], body,
+    styles: {fontSize: 7.2, cellPadding: 2.5, lineColor: [210, 218, 215], lineWidth: .4}, headStyles: {fillColor: TEAL, fontSize: 7}, theme: "grid", margin: {left: 36, right: 36},
+    columnStyles: {0: {cellWidth: 38}, 1: {cellWidth: 34}, 2: {cellWidth: 92}, 3: R, 4: R, 5: R, 6: R, 7: R, 8: R, 9: {cellWidth: 92}}});
+  let y = doc.lastAutoTable.finalY + 14;
+  const half = (cfgL, cfgR) => {
+    doc.autoTable({...cfgL, startY: y, margin: {left: 36}, tableWidth: 255, theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}}); const a = doc.lastAutoTable.finalY;
+    doc.autoTable({...cfgR, startY: y, margin: {left: 304}, tableWidth: 255, theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}}); const b = doc.lastAutoTable.finalY;
+    y = Math.max(a, b) + 12;
+  };
+  half({head: [["Meter Name", "Start", "End", "Sale (L)"]], body: m.meters.map(x => [x.name, fmtL(x.start), fmtL(x.end), fmtL(x.sale)]), columnStyles: {1: R, 2: R, 3: R}},
+    {head: [["Expenses", "Amount"]], body: [...m.expenses.map(e => [e.desc, n2(e.amount)]), [{content: "Total", styles: {fontStyle: "bold"}}, {content: n2(m.expTotal), styles: {fontStyle: "bold"}}]], columnStyles: {1: R}});
+  doc.autoTable({startY: y, head: [["Tank No.", "Fuel", "Start Sounding", "Bal. B/F", "Bal. C/B", "Qty Loaded", "Used"]], body: m.tanks.map(t => [t.name, FUEL[t.fuel], fmtL(t.sounding), fmtL(t.bf), fmtL(t.cb), fmtL(t.loaded), fmtL(t.usage)]),
+    theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {2: R, 3: R, 4: R, 5: R, 6: R}});
+  y = doc.lastAutoTable.finalY + 12;
+  half({head: [["Cash summary", "MVR"]], body: [["Total cash", n2(m.T.tcash)], ["Expenses", n2(m.expTotal)], ["Bank deposit", n2(m.deposits)], ["Bank transfers received", n2(m.transfers)], ["Cash at hand (expected)", n2(m.expected)], ["Cash & cheque counted", m.cashCounted ? n2(m.counted) : "-"], [{content: "Difference", styles: {fontStyle: "bold"}}, {content: m.cashCounted ? n2(m.cashDiff) : "-", styles: {fontStyle: "bold"}}]], columnStyles: {1: R}},
+    {head: [["Denomination", "Count", "Amount"]], body: [...m.denoms.map(d => [String(d.d), d.n ? String(d.n) : "", d.v ? n2(d.v) : ""]), ["Coins", "", m.coins ? n2(m.coins) : ""], ...m.cheques.map(c => ["Cheque " + c.no, "", n2(c.amount)]), [{content: "Cash & cheque total", colSpan: 2, styles: {fontStyle: "bold"}}, {content: n2(m.counted), styles: {fontStyle: "bold"}}]], columnStyles: {1: R, 2: R}});
+  doc.autoTable({startY: y, head: [["Meter check", "Reading B/F", "Today's sales", "C/B", "Actual reading", "Difference"]], body: m.meterCheck.map(c => [FUEL[c.fuel], fmtL(c.start), fmtL(c.recorded), c.start == null ? "" : fmtL(r3(c.start + c.recorded)), fmtL(c.end), fmtL(c.diff)]),
+    theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {1: R, 2: R, 3: R, 4: R, 5: R}});
+  y = doc.lastAutoTable.finalY + 12;
+  if (m.slips.length) {
+    doc.autoTable({startY: y, head: [["Bank slip", "Account on slip", "Reference", "Amount", "Status"]], body: m.slips.map(s => [s.kind === "deposit" ? "Cash deposit" : "Transfer " + (s.customer || ""), (s.ai && s.ai.to_account_number) || "", (s.ai && s.ai.reference) || "", n2(s.amount), (STATUS[s.status] || ["", s.status])[1]]),
+      theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {3: R}});
+    y = doc.lastAutoTable.finalY + 12;
+  }
+  if (m.notes) { doc.setFontSize(8); doc.text(doc.splitTextToSize("Notes: " + m.notes, 520), 36, y + 4); }
+  pdfFooter(doc); return doc.output("blob");
+}
+function tablePdf(title, sub, sections) {
+  const doc = pdfDoc(title, sub); let y = 70;
+  for (const sc of sections) {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(sc.title, 36, y + 6); y += 12;
+    doc.autoTable({startY: y, head: [sc.cols], body: sc.rows.map(r => r.map((v, i) => i === 0 || sc.text?.includes(i) ? (v ?? "") : (v == null ? "" : String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)))), foot: sc.tot ? [sc.tot.map((v, i) => i ? (String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)) : v)] : undefined,
+      theme: "grid", styles: {fontSize: sc.cols.length > 10 ? 6 : 7.5, cellPadding: 2}, headStyles: {fillColor: TEAL, fontSize: sc.cols.length > 10 ? 5.8 : 7.5}, footStyles: {fillColor: [225, 230, 228], textColor: 20}, margin: {left: 36, right: 36},
+      columnStyles: Object.fromEntries(sc.cols.map((c, i) => [i, i === 0 || sc.text?.includes(i) ? {} : {halign: "right"}]))});
+    y = doc.lastAutoTable.finalY + 18;
+  }
+  pdfFooter(doc); return doc.output("blob");
+}
+function xlsxBook() { if (!window.ExcelJS) throw new Error("Excel library didn't load. Check the connection and reload."); const wb = new ExcelJS.Workbook(); wb.creator = "Huvath Fuel Sales"; return wb; }
+const XB = {style: "thin", color: {argb: "FFB8C4C0"}}; const XBORDER = {top: XB, left: XB, bottom: XB, right: XB};
+const XFILL = argb => ({type: "pattern", pattern: "solid", fgColor: {argb}});
+function xHeader(ws, title, sub, lastCol) {
+  const s = st();
+  ws.getCell("A1").value = s.station; ws.getCell("A1").font = {bold: true, size: 16};
+  ws.getCell("A2").value = s.address1; ws.getCell("A3").value = s.address2;
+  ws.getCell(lastCol + "2").value = title; ws.getCell(lastCol + "2").font = {bold: true, size: 13}; ws.getCell(lastCol + "2").alignment = {horizontal: "right"};
+  ws.getCell(lastCol + "3").value = sub; ws.getCell(lastCol + "3").alignment = {horizontal: "right"};
+}
+function xTable(ws, r0, c0, head, rows, opts = {}) {
+  head.forEach((h, i) => { const c = ws.getCell(r0, c0 + i); c.value = h; c.font = {bold: true, color: {argb: "FFFFFFFF"}}; c.fill = XFILL("FF0B6E63"); c.border = XBORDER; c.alignment = {vertical: "middle", wrapText: true}; });
+  rows.forEach((r, ri) => {
+    const vals = Array.isArray(r) ? r : r.v; const kind = Array.isArray(r) ? "" : r.kind;
+    vals.forEach((v, i) => {
+      const c = ws.getCell(r0 + 1 + ri, c0 + i); c.value = v === "" ? null : v; c.border = XBORDER;
+      if (typeof v === "number" || (v && v.formula)) c.numFmt = opts.litreCols && opts.litreCols.includes(i) ? "#,##0.###" : "#,##0.00";
+      if (kind === "sec") { c.fill = XFILL("FFDCEFEB"); c.font = {bold: true, color: {argb: "FF0B6E63"}}; }
+      if (kind === "sub" || kind === "cash") { c.fill = XFILL("FFF2F5F4"); c.font = {bold: true}; }
+      if (kind === "meter") c.font = {italic: true, color: {argb: "FF5A6B66"}};
+      if (kind === "total") { c.fill = XFILL("FFE1E6E4"); c.font = {bold: true}; }
+    });
+  });
+  return r0 + rows.length + 1;
+}
+async function dailyXlsx(m) {
+  const wb = xlsxBook(); const ws = wb.addWorksheet("Main", {pageSetup: {paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0}});
+  ws.columns = [10, 10, 30, 11, 9, 13, 13, 13, 13, 30].map(w => ({width: w}));
+  xHeader(ws, "Daily Sales Report", dmy(m.date), "J");
+  const first = 6; let r = first;
+  const rows = m.rows.map(x => x.kind === "sec" ? {kind: "sec", v: [x.name, "", "", "", "", "", "", "", "", ""]} : {kind: x.kind, v: [x.po || "", x.dno || "", x.name || "", x.qty ?? "", x.rate ?? "", x.cash ?? "", x.credit ?? "", x.coll ?? "", x.tcash ?? "", x.remark || ""]});
+  // live formulas: credit lines = qty × rate, total row = SUM of item/cash rows
+  const end = xTable(ws, 5, 1, ["PO NO.", "D/No.", "Customer Name", "Qty", "Rate", "Cash Sales", "Credit Sales", "Credit Collection", "Total Cash", "Remarks"], rows, {litreCols: [3]});
+  const totalRow = end - 1; const sumRows = [];
+  m.rows.forEach((x, i) => { const rr = first + i; if (x.kind === "item" || x.kind === "cash") sumRows.push(rr); });
+  ["F", "G", "H", "I"].forEach((col, k) => {
+    const key = ["cash", "credit", "coll", "tcash"][k];
+    if (sumRows.length) ws.getCell(col + totalRow).value = {formula: sumRows.map(rr => col + rr).join("+"), result: m.T[key]};
+  });
+  r = end + 1;
+  const r1 = xTable(ws, r, 1, ["Meter Name", "", "Start", "End", "Sale (L)"], m.meters.map(x => [x.name, "", x.start ?? "", x.end ?? "", x.sale ?? ""]), {litreCols: [2, 3, 4]});
+  const r2_ = xTable(ws, r, 7, ["Expenses", "", "Amount"], [...m.expenses.map(e => [e.desc, "", num(e.amount)]), {kind: "total", v: ["Total", "", m.expTotal]}]);
+  r = Math.max(r1, r2_) + 1;
+  r = xTable(ws, r, 1, ["Tank No.", "", "Fuel", "Start Sounding", "Bal. B/F", "Bal. C/B", "Qty Loaded", "Used"], m.tanks.map(t => [t.name, "", FUEL[t.fuel], t.sounding ?? "", t.bf ?? "", t.cb ?? "", t.loaded ?? "", t.usage ?? ""]), {litreCols: [3, 4, 5, 6, 7]}) + 1;
+  const c1 = xTable(ws, r, 1, ["Cash summary", "", "", "MVR"], [["Total cash", "", "", m.T.tcash], ["Expenses", "", "", m.expTotal], ["Bank deposit", "", "", m.deposits], ["Bank transfers received", "", "", m.transfers], {kind: "sub", v: ["Cash at hand (expected)", "", "", m.expected]}, ["Cash & cheque counted", "", "", m.cashCounted ? m.counted : ""], {kind: "total", v: ["Difference", "", "", m.cashCounted ? m.cashDiff : ""]}]);
+  const c2 = xTable(ws, r, 6, ["Meter check", "B/F", "Today's sales", "C/B", "Actual"], m.meterCheck.map(c => [FUEL[c.fuel], c.start ?? "", c.recorded, c.start == null ? "" : r3(c.start + c.recorded), c.end ?? ""]), {litreCols: [1, 2, 3, 4]});
+  r = Math.max(c1, c2) + 1;
+  if (m.notes) { ws.getCell("A" + r).value = "Notes: " + m.notes; }
+  // sheet 2: cash count
+  const w2 = wb.addWorksheet("Cash Count"); w2.columns = [{width: 22}, {width: 12}, {width: 14}];
+  let q = xTable(w2, 1, 1, ["Currency denomination", "Count", "Amount"], [...m.denoms.map(d => [d.d, d.n || "", d.v || ""]), ["Coins", "", m.coins || ""], {kind: "sub", v: ["Total cash", "", m.notesTotal]}]) + 1;
+  q = xTable(w2, q, 1, ["Cheques", "", "Amount"], [...m.cheques.map(c => [c.no, "", num(c.amount)]), {kind: "sub", v: ["Total cheque amt", "", m.chequeTotal]}]) + 1;
+  xTable(w2, q, 1, ["Check", "", "MVR"], [["Cash & cheque total", "", m.counted], ["Cash at hand (expected)", "", m.expected], {kind: "total", v: ["Difference", "", m.cashDiff]}]);
+  // sheet 3: every transaction
+  const w3 = wb.addWorksheet("Sales Log"); w3.columns = [8, 14, 10, 24, 10, 9, 12, 10, 12, 10, 18, 26].map(w => ({width: w}));
+  xTable(w3, 1, 1, ["Time", "Type", "Fuel", "Customer / item", "Qty (L)", "Rate", "Amount", "Payment", "PO No.", "D/No.", "Staff", "Remarks"],
+    m.items.map(i => [hm(i.at), {cash: "Cash sale", credit: "Credit sale", collect: "Payment", other: "Other income"}[i.t], FUEL[i.fuel] || "", i.customer || i.desc || "", i.qty ?? "", i.rate ?? "", i.amount, i.t === "credit" ? "Credit" : (i.pay || "cash"), i.po || "", i.dno || "", nameOf(i.by), [i.note, i.remark, i.ref].filter(Boolean).join(" · ")]), {litreCols: [4]});
+  if (m.slips.length) {
+    const w4 = wb.addWorksheet("Bank Slips"); w4.columns = [8, 16, 20, 18, 16, 12, 12, 16, 40].map(w => ({width: w}));
+    xTable(w4, 1, 1, ["Time", "Type", "Customer", "Account on slip", "Reference", "Entered", "On slip", "Status", "Notes"], m.slips.map(s => [hm(s.at), s.kind === "deposit" ? "Cash deposit" : "Transfer", s.customer || "", (s.ai && s.ai.to_account_number) || "", (s.ai && s.ai.reference) || "", num(s.amount), s.ai && s.ai.amount != null ? num(s.ai.amount) : "", (STATUS[s.status] || ["", s.status])[1], s.note || ""]));
+  }
+  return new Blob([await wb.xlsx.writeBuffer()], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+async function tableXlsx(title, sub, sections) {
+  const wb = xlsxBook();
+  for (const sc of sections) {
+    const ws = wb.addWorksheet(sc.sheet); ws.columns = sc.cols.map((c, i) => ({width: i === 0 ? 24 : Math.max(12, c.length + 2)}));
+    xHeader(ws, title, sub, String.fromCharCode(64 + Math.min(sc.cols.length, 26)));
+    const lit = sc.cols.map((c, i) => String(c).includes(" L") ? i : -1).filter(i => i >= 0);
+    xTable(ws, 5, 1, sc.cols, [...sc.rows.map(r => r.map(v => v == null ? "" : v)), ...(sc.tot ? [{kind: "total", v: sc.tot}] : [])], {litreCols: lit});
+  }
+  return new Blob([await wb.xlsx.writeBuffer()], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+
+/* --- MORE: customers, settings, users --- */
+function viewMore() {
+  const v = S.moreView;
+  if (v === "customers" && can("viewCustomers")) return viewCustomers();
+  if (v === "settings" && can("settings")) return viewSettings();
+  if (v === "users" && can("users")) return viewUsers();
+  const tile = (k, t, d) => `<button class="card tile" data-act="more" data-v="${k}"><h3>${t}</h3><p class="muted small" style="margin:4px 0 0">${d}</p></button>`;
+  return `<div class="stack"><div class="pagehead"><div><h2>More</h2></div></div><div class="tiles">
+    ${can("viewCustomers") ? tile("customers", "Credit customers", "Names and the agreed rate per litre for each customer.") : ""}
+    ${can("settings") ? tile("settings", "Station settings", "Fuel prices, bank account for slip checks, meters and tanks.") : ""}
+    ${can("users") ? tile("users", "Users &amp; roles", "Give staff access and choose what each person can do.") : ""}
+  </div>
+  <div class="card stack"><h3>Your account</h3><div class="row"><span class="rolechip">${esc(ROLES[S.role])}</span><span>${esc(S.me.name || nameOf(S.me.id))}</span></div>
+    <p class="small muted" style="margin:0">${esc(S.role === "owner" ? "Full control of everything, including who can use the app." : ROLE_HELP[S.role] || "")}</p></div></div>`;
+}
+function viewCustomers() {
+  const ed = can("customers");
+  return `<div class="stack"><div class="pagehead"><div><button class="btn sm" data-act="more" data-v="">← More</button><h2 style="margin-top:8px">Credit customers</h2><p>Each customer's rate fills in automatically on a credit sale.</p></div></div>
+    ${ed ? `<form class="card row" data-form="cust" autocomplete="off"><label class="f" style="flex:2">Name<input class="in" id="cuName" required maxlength="60"></label><label class="f">Petrol rate<input class="in num" id="cuP" inputmode="decimal" placeholder="${st().prices.petrol}"></label><label class="f">Diesel rate<input class="in num" id="cuD" inputmode="decimal" placeholder="${st().prices.diesel}"></label><button class="btn pri" style="align-self:flex-end">Add customer</button></form>` : ""}
+    <div class="card"><div class="tw"><table><thead><tr><th>Customer</th><th class="n">Petrol rate</th><th class="n">Diesel rate</th><th>Status</th>${ed ? "<th></th>" : ""}</tr></thead><tbody data-live="custRows"></tbody></table></div></div></div>`;
+}
+LIVE.custRows = () => {
+  const ed = can("customers"); const list = Object.entries(S.customers).filter(([, c]) => c).sort((a, b) => a[1].name.localeCompare(b[1].name));
+  if (!list.length) return `<tr><td colspan="5" class="empty">No credit customers yet.</td></tr>`;
+  return list.map(([id, c]) => `<tr><td>${ed ? `<input class="in" style="min-width:160px" value="${esc(c.name)}" data-cu="${id}" data-k="name" aria-label="Name">` : esc(c.name)}</td>
+    <td class="n">${ed ? `<input class="in num" style="width:90px;text-align:right" value="${c.petrolRate ?? ""}" data-cu="${id}" data-k="petrolRate" aria-label="Petrol rate">` : n2(c.petrolRate)}</td>
+    <td class="n">${ed ? `<input class="in num" style="width:90px;text-align:right" value="${c.dieselRate ?? ""}" data-cu="${id}" data-k="dieselRate" aria-label="Diesel rate">` : n2(c.dieselRate)}</td>
+    <td>${c.active === false ? `<span class="pill">Hidden</span>` : `<span class="pill good">Active</span>`}</td>${ed ? `<td><button class="btn sm" data-act="custToggle" data-id="${id}">${c.active === false ? "Show" : "Hide"}</button></td>` : ""}</tr>`).join("");
+};
+function viewSettings() {
+  const s = st();
+  return `<div class="stack"><div class="pagehead"><div><button class="btn sm" data-act="more" data-v="">← More</button><h2 style="margin-top:8px">Station settings</h2></div></div>
+  <form class="stack" data-form="settings" autocomplete="off">
+    <div class="card stack"><h3>Station</h3><div class="row"><label class="f">Name<input class="in" id="seName" value="${esc(s.station)}" required></label><label class="f">Address line 1<input class="in" id="seA1" value="${esc(s.address1)}"></label><label class="f">Address line 2<input class="in" id="seA2" value="${esc(s.address2)}"></label></div></div>
+    <div class="card stack"><h3>Cash prices (MVR per litre)</h3><div class="row"><label class="f">Petrol<input class="in num" id="seP" inputmode="decimal" value="${s.prices.petrol}" required></label><label class="f">Diesel<input class="in num" id="seD" inputmode="decimal" value="${s.prices.diesel}" required></label><label class="f">Meter tolerance (L)<input class="in num" id="seTol" inputmode="decimal" value="${s.meterTolerance ?? 0.5}"></label></div></div>
+    <div class="card stack"><h3>Station bank accounts</h3><p class="small muted" style="margin:0">Slips are verified only when the receiving account matches one of these.</p><div id="seBanks" class="stack">${(s.bankAccounts || []).map(bankRow).join("")}</div><button type="button" class="btn" data-act="addRow" data-v="bank">Add account</button></div>
+    <div class="card stack"><h3>Meters</h3><div id="seMeters" class="stack">${s.meters.map(meterRow).join("")}</div><button type="button" class="btn" data-act="addRow" data-v="meter">Add meter</button></div>
+    <div class="card stack"><h3>Tanks</h3><div id="seTanks" class="stack">${s.tanks.map(tankRow).join("")}</div><button type="button" class="btn" data-act="addRow" data-v="tank">Add tank</button></div>
+    <div class="card stack"><h3>Quick buttons on the Sell page</h3><div class="row"><label class="f">Litres<input class="in" id="seQL" value="${s.quickL.join(", ")}"></label><label class="f">MVR amounts<input class="in" id="seQM" value="${s.quickMVR.join(", ")}"></label></div></div>
+    <button class="btn pri block">Save settings</button></form></div>`;
+}
+const fuelSel = f => `<select class="in" data-k="fuel">${FUELS.map(x => `<option value="${x}" ${x === f ? "selected" : ""}>${FUEL[x]}</option>`).join("")}</select>`;
+const rmBtn = `<button type="button" class="btn sm danger" data-act="rmRow">Remove</button>`;
+const bankRow = a => `<div class="row" data-row="bank"><input class="in" data-k="bank" placeholder="Bank (e.g. BML)" value="${esc(a.bank || "")}" style="flex:1;min-width:110px"><input class="in mono" data-k="number" placeholder="Account number" value="${esc(a.number || "")}" required style="flex:2;min-width:160px"><input class="in" data-k="name" placeholder="Account name" value="${esc(a.name || "")}" style="flex:2;min-width:140px">${rmBtn}</div>`;
+const meterRow = m => `<div class="row" data-row="meter" data-id="${esc(m.id)}"><input class="in" data-k="name" value="${esc(m.name)}" required style="flex:2;min-width:150px">${fuelSel(m.fuel)}${rmBtn}</div>`;
+const tankRow = t => `<div class="row" data-row="tank" data-id="${esc(t.id)}"><input class="in" data-k="name" value="${esc(t.name)}" required style="flex:2;min-width:150px">${fuelSel(t.fuel)}<input class="in num" data-k="capacity" placeholder="Capacity L" value="${t.capacity || ""}" style="width:120px">${rmBtn}</div>`;
+function viewUsers() {
+  return `<div class="stack"><div class="pagehead"><div><button class="btn sm" data-act="more" data-v="">← More</button><h2 style="margin-top:8px">Users &amp; roles</h2><p>You are the owner and always have full control.</p></div></div>
+    <div class="card stack"><h3>Add a staff member</h3>
+      <ol style="margin:0;padding-left:20px" class="small"><li>Send them this website's address: <b class="mono">${esc(location.origin + location.pathname)}</b></li><li>They tap <b>Create account</b> and sign up with their own email and a password.</li><li>They appear below under <b>Waiting for a role</b>. Pick a role and press Save.</li></ol>
+      <p class="small muted" style="margin:0">To remove someone, set their role to <b>No access</b>.</p></div>
+    <div class="card"><h3>Roles</h3><div class="small muted" style="margin-bottom:8px">${Object.entries(ROLE_HELP).map(([k, v]) => `<div><b>${ROLES[k]}:</b> ${v}</div>`).join("")}</div><div class="list" data-live="userList"></div></div></div>`;
+}
+LIVE.userList = () => {
+  const ids = [...new Set([...Object.keys(S.roles), ...Object.keys(S.staff)])].filter(id => id !== S.me.id);
+  if (!ids.length) return `<div class="empty">Nobody else has opened the app yet.</div>`;
+  const pending = ids.filter(id => !S.roles[id] || S.roles[id].role === "none");
+  const order = [...pending, ...ids.filter(id => !pending.includes(id))];
+  return order.map(id => {
+    const r = S.roles[id] || {}; const s = S.staff[id] || {}; const em = S.emails && S.emails[id];
+    return `<div class="li" style="grid-template-columns:1fr"><div class="main"><b>${esc(S.names[id] || s.alias || r.label || "Unnamed staff")}</b> ${!r.role || r.role === "none" ? `<span class="pill warn">Waiting for a role</span>` : `<span class="pill good">${ROLES[r.role]}</span>`}
+      <div class="small muted">${(em || s.email) ? esc(em || s.email) + " · " : ""}${s.seen ? "last opened " + dmy(s.seen.slice(0, 10)) : "hasn't opened the app yet"}</div></div>
+      <div class="row" data-urow="${id}"><select class="in" data-k="role" style="max-width:170px"><option value="none">No access</option>${["manager", "cashier", "accountant"].map(k => `<option value="${k}" ${r.role === k ? "selected" : ""}>${ROLES[k]}</option>`).join("")}</select>
+        <input class="in" data-k="label" placeholder="Display name (optional)" value="${esc(r.label || "")}" maxlength="40" style="flex:1;min-width:140px"><button class="btn sm pri" data-act="saveRole" data-id="${id}">Save</button></div></div>`;
+  }).join("");
+};
+
+/* ---------- events ---------- */
+document.addEventListener("click", async e => {
+  const tabBtn = e.target.closest("[data-tab]");
+  if (tabBtn) { S.tab = tabBtn.dataset.tab; ls.set("huvath.tab", S.tab); if (S.tab !== "more") S.moreView = null; renderAll(); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, v = b.dataset.v, id = b.dataset.id;
+  switch (act) {
+    case "authMode": showLogin(v); break;
+    case "signOut": S.auth && S.auth.signOut(); break;
+    case "forgot": {
+      const em = ($("#auEmail") || {}).value; if (!em) { authMsg("Type your email first, then tap Forgot password.", true); return; }
+      try { await S.auth.sendPasswordResetEmail(em.trim()); authMsg("Password reset email sent to " + em.trim() + "."); } catch (er) { authMsg(authErr(er), true); }
+      break;
+    }
+    case "resendVerify": try { await S.auth.currentUser.sendEmailVerification(); toast("Verification email sent"); } catch (er) { toast(authErr(er)); } break;
+    case "reloadUser": try { const u = S.auth.currentUser; await u.reload(); await u.getIdToken(true); startSession(S.auth.currentUser); } catch (er) { toast(authErr(er)); } break;
+    case "cpPick": setCust(b.dataset.for, id); break;
+    case "cpNew": {
+      const q = document.getElementById(b.dataset.for + "_q"); const name = q.value.trim(); if (!name) return;
+      const cid = newId(); const val = {items: {[cid]: {name, petrolRate: null, dieselRate: null, active: true}}};
+      try { const ref = S.db.doc("config/customers"); const g = await ref.get(); if (g.exists) await ref.update(val); else await ref.set(val); S.customers[cid] = val.items[cid]; setCust(b.dataset.for, cid); toast("Customer added. Set their rate on the Customers page."); } catch (er) { toast(dbErr(er)); }
+      break;
+    }
+    case "addSlip": openSlipSheet(S.items.find(i => i.id === id)); break;
+    case "pickFuel": S.sellFuel = b.dataset.fuel; ls.set("huvath.fuel", S.sellFuel); document.querySelectorAll('[data-act="pickFuel"]').forEach(x => x.setAttribute("aria-pressed", x === b)); $("#sellRate").value = st().prices[S.sellFuel]; sellCalc(); break;
+    case "sellMode": S.sellMode = v; document.querySelectorAll('[data-act="sellMode"]').forEach(x => x.setAttribute("aria-pressed", x === b)); $("#sellValLbl").textContent = v === "L" ? "Litres" : "Amount in MVR"; sellChips(); sellCalc(); $("#sellVal").focus(); break;
+    case "sellPay": S.sellPay = v; document.querySelectorAll('[data-act="sellPay"]').forEach(x => x.setAttribute("aria-pressed", x === b)); break;
+    case "quick": $("#sellVal").value = v; sellCalc(); break;
+    case "crFuel": S.sellFuel = b.dataset.fuel; document.querySelectorAll('[data-act="crFuel"]').forEach(x => x.setAttribute("aria-pressed", x === b)); crUpdate(true); break;
+    case "creditMode": S.creditMode = v; renderAll(); break;
+    case "reportMode": S.reportMode = v; renderAll(); break;
+    case "slipKind": S.sub.slipKind = v; renderAll(); break;
+    case "goCustomers": S.tab = "more"; S.moreView = "customers"; renderAll(); break;
+    case "goSettings": S.tab = "more"; S.moreView = "settings"; renderAll(); break;
+    case "more": S.moreView = v || null; renderAll(); break;
+    case "editItem": openEdit(S.items.find(i => i.id === id)); break;
+    case "delItem": {
+      if (!confirmTap(b)) return; const it = S.items.find(i => i.id === id); if (!it) return;
+      S.db.doc("entries/" + it._doc).update({items: {[it.id]: {deleted: true, deletedBy: S.me.id, deletedAt: new Date().toISOString()}}}).catch(er => toast(dbErr(er))); toast("Deleted");
+      break;
+    }
+    case "delExp": if (!confirmTap(b)) return; await patchDay({expenses: {[id]: {deleted: true, deletedBy: S.me.id}}}); break;
+    case "delChq": if (!confirmTap(b)) return; await patchDay({cheques: {[id]: {deleted: true, deletedBy: S.me.id}}}); break;
+    case "toggleClose":
+      if (!S.day.closed && !confirmTap(b)) return;
+      if (await patchDay(S.day.closed ? {closed: false, reopenedBy: S.me.id, reopenedAt: new Date().toISOString()} : {closed: true, closedBy: S.me.id, closedAt: new Date().toISOString()})) { toast(S.day.closed ? "Day reopened" : "Day closed"); setTimeout(renderAll, 300); }
+      break;
+    case "viewSlip": {
+      const s = S.slips.find(x => x.id === id); if (!s) return; const src = slipSrc(s); const ai = s.ai || {};
+      openSheet(`<div class="stack"><div class="row between"><h3>${s.kind === "deposit" ? "Cash deposit" : "Customer transfer"} · MVR ${n2(s.amount)}</h3><button class="btn sm" data-close>Close</button></div>
+        ${src ? `<img src="${esc(src)}" alt="Slip photo" style="width:100%;border-radius:8px">` : `<div class="empty">Photo not available.</div>`}
+        <div class="tw"><table><tbody>${[["Bank", ai.bank], ["To account", ai.to_account_number], ["Account name", ai.to_account_name], ["From", ai.from_name], ["Amount on slip", ai.amount != null ? n2(ai.amount) : ""], ["Date on slip", ai.date ? dmy(ai.date) : ""], ["Reference", ai.reference], ["Read quality", ai.confidence], ["Uploaded by", nameOf(s.by)], ["Checked by", s.reviewedBy ? nameOf(s.reviewedBy) : ""]].map(([k, v2]) => `<tr><td class="muted">${k}</td><td>${esc(v2 || "—")}</td></tr>`).join("")}</tbody></table></div>
+        ${s.note ? `<div class="banner">${esc(s.note)}</div>` : ""}${ai.text ? `<details><summary>Text read from the slip</summary><pre style="white-space:pre-wrap;font-size:.8rem;font-family:var(--mono)">${esc(ai.text)}</pre></details>` : ""}</div>`);
+      break;
+    }
+    case "slipSet": try { await S.db.doc("slips/" + id).update({status: v, reviewedBy: S.me.id, reviewedAt: new Date().toISOString()}); toast(v === "approved" ? "Slip approved" : "Slip rejected"); } catch (er) { toast(dbErr(er)); } break;
+    case "slipDel": {
+      if (!confirmTap(b)) return; const s = S.slips.find(x => x.id === id);
+      try {
+        await S.db.doc("slips/" + id).delete();
+        if (s && s.img && s.img.doc) await S.db.doc("slipimg/" + id).delete();
+        if (s && s.img && s.img.asset && S.assets) await S.assets.delete(s.img.asset).catch(() => {});
+        toast("Slip deleted");
+      } catch (er) { toast(dbErr(er)); }
+      break;
+    }
+    case "slipRecheck": {
+      const s = S.slips.find(x => x.id === id); const src = s && slipSrc(s); if (!src) return;
+      b.disabled = true; b.textContent = "Checking…";
+      try {
+        const blob = await (await fetch(src)).blob();
+        const ai = await runSlipCheck(id, blob, num(s.amount)); const ev = await evaluateSlip(id, ai, num(s.amount));
+        await S.db.doc("slips/" + id).update({ai, ...ev}); toast("Checked: " + STATUS[ev.status][1]);
+      } catch (er) { toast(sampleErr(er)); b.disabled = false; b.textContent = "Check again"; }
+      break;
+    }
+    case "dlDaily": await download(async () => {
+      const m = model(); const name = `Daily Sales Report ${dmy(m.date)}`;
+      return b.dataset.f === "pdf" ? [name + ".pdf", dailyPdf(m)] : [name + ".xlsx", await dailyXlsx(m)];
+    }, b); break;
+    case "dlRange": await download(async () => {
+      const R = S.sub.range; if (!R) throw new Error("Show the report first."); const sub = `${dmy(R.from)} to ${dmy(R.to)}`;
+      const secs = [{title: "Daily totals", sheet: "Daily totals", cols: R.cols, rows: R.rows, tot: R.tot}, {title: "Credit customers", sheet: "Credit customers", cols: R.custCols, rows: R.custRows}];
+      return b.dataset.f === "pdf" ? [`Sales Summary ${sub}.pdf`, tablePdf("Sales Summary", sub, secs)] : [`Sales Summary ${sub}.xlsx`, await tableXlsx("Sales Summary", sub, secs)];
+    }, b); break;
+    case "dlStmt": await download(async () => {
+      const M = S.sub.stmt; if (!M) throw new Error("Show the statement first."); const sub = `${dmy(M.from)} to ${dmy(M.to)}`;
+      const rows = [["Opening balance", "", "", null, null, M.open], ...M.rows, ["Balance due", "", "", null, null, M.close]];
+      const secs = [{title: M.name, sheet: "Statement", cols: M.cols, rows, text: [1, 2]}];
+      return b.dataset.f === "pdf" ? [`Statement ${M.name} ${sub}.pdf`, tablePdf("Customer Statement", M.name + " · " + sub, secs)] : [`Statement ${M.name} ${sub}.xlsx`, await tableXlsx("Customer Statement", M.name + " · " + sub, secs)];
+    }, b); break;
+    case "addRow": { const box = {bank: "#seBanks", meter: "#seMeters", tank: "#seTanks"}[v]; const html = v === "bank" ? bankRow({}) : v === "meter" ? meterRow({id: "m" + Date.now().toString(36), name: "", fuel: "petrol"}) : tankRow({id: "t" + Date.now().toString(36), name: "", fuel: "petrol"}); $(box).insertAdjacentHTML("beforeend", html); break; }
+    case "rmRow": b.closest("[data-row]").remove(); break;
+    case "custToggle": { const c = S.customers[id]; try { await S.db.doc("config/customers").update({items: {[id]: {active: c.active === false}}}); } catch (er) { toast(dbErr(er)); } break; }
+    case "saveRole": {
+      const row = b.closest("[data-urow]"); const role = row.querySelector('[data-k="role"]').value; const label = row.querySelector('[data-k="label"]').value.trim();
+      try {
+        const ref = S.db.doc("config/roles"); const g = await ref.get();
+        if (g.exists) await ref.update({users: {[id]: {role, label}}}); else await ref.set({users: {[id]: {role, label}}});
+        toast("Saved"); } catch (er) { toast(dbErr(er)); }
+      break;
+    }
+    case "pickPerson": {
+      const pid = b.dataset.id;
+      try { const ref = S.db.doc("config/roles"); const g = await ref.get(); const val = {users: {[pid]: {role: "cashier", label: ""}}}; if (g.exists) await ref.update(val); else await ref.set(val); toast("Added as Cashier. Change the role below if needed."); $("#ppHits").innerHTML = ""; $("#ppSearch").value = ""; }
+      catch (er) { toast(dbErr(er)); }
+      break;
+    }
+  }
+});
+async function download(make, btn) {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = "Preparing…";
+  try { const [name, blob] = await make(); await saveFile(name, blob); }
+  catch (e) { console.error(e); toast(e && e.message ? e.message : "Couldn't build the file."); }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
+function sampleErr(e) {
+  const c = e && e.code;
+  if (c === "ocr_load") return "The slip reader couldn't load (no internet?). The slip is saved; tap Check again later.";
+  if (c === "permission-denied") return "You don't have permission to update this slip.";
+  return "Checking failed. The slip is saved; try Check again later.";
+}
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "sellVal" || t.id === "sellRate") sellCalc();
+  if (t.id === "crQty" || t.id === "crRate") crUpdate(false);
+  if (t.closest("[data-form='expense'],[data-form='cheque']")) return;
+  if (t.id === "ppSearch" && S.user) {
+    S.user.search(t.value.trim()).then(hits => {
+      const box = $("#ppHits"); if (!box) return;
+      box.innerHTML = hits.filter(h => !h.isMe).map(h => `<div class="li" style="grid-template-columns:auto 1fr auto"><img src="${esc(h.avatarUrl)}" alt="" style="width:30px;height:30px;border-radius:50%"><div class="main"><b></b><div class="small muted"></div></div><button class="btn sm" data-act="pickPerson" data-id="${esc(h.id)}">Give access</button></div>`).join("");
+      [...box.children].forEach((el, i) => { const h = hits.filter(x => !x.isMe)[i]; el.querySelector("b").textContent = h.name; el.querySelector(".small").textContent = h.email || ""; S.names[h.id] = h.name; });
+    });
+  }
+});
+document.addEventListener("input", e => { const id = e.target.dataset && e.target.dataset.cpq; if (!id) return; const h = document.getElementById(id); const c = S.customers[h.value]; if (!c || c.name !== e.target.value) { if (h.value) { h.value = ""; h.dispatchEvent(new Event("change", {bubbles: true})); } } showCustList(id); });
+document.addEventListener("focusin", e => { const id = e.target.dataset && e.target.dataset.cpq; if (id) { e.target.select(); showCustList(id); } });
+document.addEventListener("focusout", e => { const id = e.target.dataset && e.target.dataset.cpq; if (!id) return; setTimeout(() => { const box = document.querySelector(`[data-cpl="${id}"]`); if (box && !box.contains(document.activeElement)) box.hidden = true; const h = document.getElementById(id); if (h && !h.value && box) e.target.value = e.target.value; }, 180); });
+document.addEventListener("mousedown", e => { if (e.target.closest(".cplist")) e.preventDefault(); });
+document.addEventListener("keydown", e => { const id = e.target.dataset && e.target.dataset.cpq; if (!id) return; if (e.key === "Enter") { e.preventDefault(); const first = document.querySelector(`[data-cpl="${id}"] button`); if (first) first.click(); } if (e.key === "Escape") { const box = document.querySelector(`[data-cpl="${id}"]`); if (box) box.hidden = true; } });
+document.addEventListener("focusin", e => { if (e.target.id === "ppSearch" && S.user) e.target.dispatchEvent(new Event("input", {bubbles: true})); });
+document.addEventListener("change", async e => {
+  const t = e.target;
+  if (t.id === "dateIn") { setDate(t.value || todayStr()); return; }
+  if (t.id === "crCust") { S.sub.crCust = t.value; crUpdate(true); return; }
+  if (t.id === "slFile" || t.id === "asFile") { const f = t.files[0]; const p = t.id === "slFile" ? $("#slPrev") : $("#asPrev"); if (f && p) { p.src = URL.createObjectURL(f); p.hidden = false; } return; }
+  if (t.dataset.bind) {
+    if (dayLocked() || dateLocked()) return;
+    const isText = t.dataset.bind === "notes";
+    const val = isText ? t.value : numOrNull(t.value);
+    if (!isText && t.value.trim() !== "" && val == null) { toast("Enter a number"); return; }
+    if (await patchDay(nest(t.dataset.bind, val))) toast("Saved");
+    return;
+  }
+  if (t.dataset.cu) {
+    const k = t.dataset.k; const val = k === "name" ? t.value.trim() : numOrNull(t.value);
+    if (k === "name" && !val) return;
+    try { await S.db.doc("config/customers").update({items: {[t.dataset.cu]: {[k]: val}}}); toast("Saved"); } catch (er) { toast(dbErr(er)); }
+  }
+});
+document.addEventListener("submit", async e => {
+  const f = e.target.closest("form[data-form]"); if (!f) return; e.preventDefault();
+  const kind = f.dataset.form; const btn = f.querySelector("button:not([type=button])");
+  if (btn) btn.disabled = true;
+  try { await handleForm(kind, f); } finally { if (btn) btn.disabled = false; }
+});
+async function handleForm(kind, f) {
+  if (kind === "sell") {
+    const c = sellCalc(); if (!(c.qty > 0) || !(c.rate > 0)) { toast("Enter litres or an amount"); return; }
+    const ok = await addItem({t: "cash", fuel: S.sellFuel, qty: c.qty, rate: c.rate, amount: c.amt, pay: S.sellPay, note: $("#sellNote").value.trim() || null});
+    if (ok) { toast(`Saved · ${FUEL[S.sellFuel]} ${nL(c.qty)} L · MVR ${n2(c.amt)}`); $("#sellVal").value = ""; $("#sellNote").value = ""; sellCalc(); $("#sellVal").focus(); }
+  }
+  if (kind === "other") {
+    const amt = r2(num($("#othAmt").value)); if (!(amt > 0)) return toast("Enter an amount");
+    if (await addItem({t: "other", desc: $("#othDesc").value.trim(), amount: amt, pay: $("#othPay").value})) { toast("Income saved"); f.reset(); }
+  }
+  if (kind === "credit") {
+    const cid = $("#crCust").value; const c = S.customers[cid]; if (!c) return toast("Choose a customer");
+    const qty = r3(num($("#crQty").value)), rate = num($("#crRate").value); if (!(qty > 0 && rate > 0)) return toast("Enter litres and rate");
+    if (await addItem({t: "credit", fuel: S.sellFuel, customerId: cid, customer: c.name, qty, rate, amount: r2(qty * rate), po: $("#crPo").value.trim() || null, dno: $("#crDno").value.trim() || null, remark: $("#crRem").value.trim() || null})) {
+      toast(`Credit saved · ${c.name}`); ["crQty", "crPo", "crDno", "crRem"].forEach(i => $("#" + i).value = ""); crUpdate(false);
+    }
+  }
+  if (kind === "collect") {
+    const cid = $("#coCust").value; const c = S.customers[cid]; if (!c) return toast("Choose a customer");
+    const amt = r2(num($("#coAmt").value)); if (!(amt > 0)) return toast("Enter an amount");
+    const pay = $("#coPay").value;
+    if (await addItem({t: "collect", customerId: cid, customer: c.name, amount: amt, pay: pay === "cheque" ? "cash" : pay, method: pay, ref: $("#coRef").value.trim() || null, remark: $("#coRem").value.trim() || null})) { toast("Payment saved"); f.reset(); }
+  }
+  if (kind === "expense") {
+    const amt = r2(num($("#exAmt").value)); if (!(amt > 0)) return toast("Enter an amount");
+    if (await patchDay({expenses: {[newId()]: {desc: $("#exDesc").value.trim(), amount: amt, by: S.me.id, at: new Date().toISOString()}}})) { f.reset(); toast("Expense added"); }
+  }
+  if (kind === "cheque") {
+    const amt = r2(num($("#chAmt").value)); if (!(amt > 0)) return toast("Enter an amount");
+    if (await patchDay({cheques: {[newId()]: {no: $("#chNo").value.trim(), amount: amt, by: S.me.id}}})) { f.reset(); toast("Cheque added"); }
+  }
+  if (kind === "slip") await submitSlip(f);
+  if (kind === "auth") await doAuth(f);
+  if (kind === "alias") {
+    const a = $("#aliasIn").value.trim(); if (!a) return;
+    try { const ref = S.db.doc("staff/" + S.me.id); const g = await ref.get(); if (g.exists) await ref.update({alias: a}); else await ref.set({alias: a, seen: new Date().toISOString()}); toast("Saved. The owner can now see your name."); } catch (er) { toast(dbErr(er)); }
+  }
+  if (kind === "cust") {
+    const name = $("#cuName").value.trim(); if (!name) return;
+    const id = newId(); const val = {items: {[id]: {name, petrolRate: numOrNull($("#cuP").value), dieselRate: numOrNull($("#cuD").value), active: true}}};
+    try { const ref = S.db.doc("config/customers"); const g = await ref.get(); if (g.exists) await ref.update(val); else await ref.set(val); f.reset(); toast("Customer added"); } catch (er) { toast(dbErr(er)); }
+  }
+  if (kind === "settings") {
+    const rows = sel => [...document.querySelectorAll(sel)].map(r => { const o = {}; r.querySelectorAll("[data-k]").forEach(i => o[i.dataset.k] = i.value.trim()); if (r.dataset.id) o.id = r.dataset.id; return o; });
+    const list = s => s.split(",").map(x => num(x)).filter(x => x > 0);
+    const val = {station: $("#seName").value.trim(), address1: $("#seA1").value.trim(), address2: $("#seA2").value.trim(), currency: "MVR",
+      prices: {petrol: num($("#seP").value), diesel: num($("#seD").value)}, meterTolerance: num($("#seTol").value),
+      bankAccounts: rows('[data-row="bank"]').filter(a => a.number), meters: rows('[data-row="meter"]').filter(m => m.name),
+      tanks: rows('[data-row="tank"]').filter(t => t.name).map(t => ({...t, capacity: num(t.capacity)})), quickL: list($("#seQL").value), quickMVR: list($("#seQM").value)};
+    try { await S.db.doc("config/settings").set(val); toast("Settings saved"); } catch (er) { toast(dbErr(er)); }
+  }
+  if (kind === "range") {
+    const from = $("#rgFrom").value, to = $("#rgTo").value; S.sub.rgFrom = from; S.sub.rgTo = to; $("#rangeOut").innerHTML = `<div class="empty">Loading…</div>`;
+    try { const days = await fetchRange(from, to); const R = rangeModel(days, from, to); S.sub.range = R; S.sub.rangeHtml = rangeHtml(R); $("#rangeOut").innerHTML = S.sub.rangeHtml; }
+    catch (er) { $("#rangeOut").innerHTML = `<div class="banner bad">Couldn't load this period. Try a shorter range.</div>`; }
+  }
+  if (kind === "statement") {
+    const cid = $("#stCust").value, from = $("#stFrom").value, to = $("#stTo").value; if (!cid) return toast("Choose a customer");
+    S.sub.stCust = cid; S.sub.stFrom = from; S.sub.stTo = to; $("#stOut").innerHTML = `<div class="empty">Loading…</div>`;
+    try { const M = await statementModel(cid, from, to); S.sub.stmt = M; S.sub.stHtml = statementHtml(M); $("#stOut").innerHTML = S.sub.stHtml; }
+    catch (er) { $("#stOut").innerHTML = `<div class="banner bad">Couldn't load the statement.</div>`; }
+  }
+}
+async function submitSlip(f) {
+  const file = $("#slFile").files[0]; const amt = r2(num($("#slAmt").value));
+  if (!file) return toast("Choose the slip photo"); if (!(amt > 0)) return toast("Enter the amount");
+  const cid = $("#slCust") ? $("#slCust").value : "";
+  const ok = await uploadSlip({file, amount: amt, kind: S.sub.slipKind || "deposit", cid, statusEl: $("#slStatus")});
+  if (ok) { f.reset(); $("#slPrev").hidden = true; if ($("#slCust_q")) $("#slCust_q").value = ""; }
+}
+/* shared by the Slips page and "Add slip" on a transaction */
+async function uploadSlip({file, amount, kind, cid, link, statusEl}) {
+  const say = t => { if (statusEl) statusEl.textContent = t; };
+  const id = newId(); let blob, img = {};
+  say("Preparing photo…");
+  try {
+    blob = (await compressImage(file, 1600, .78)).blob;
+    if (S.assets) { say("Uploading photo…"); try { const up = await S.assets.upload(blob, {type: "image/jpeg"}); img = {asset: up.id}; } catch {} }
+    if (!img.asset) {
+      let q = .62, small; for (let i = 0; i < 4; i++) { small = await compressImage(file, 1100 - i * 150, q); if (small.blob.size < 170000) break; q -= .1; }
+      const dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(small.blob); });
+      await S.db.doc("slipimg/" + id).set({data: dataUrl, date: S.date}); img = {doc: true}; S.imgCache[id] = dataUrl;
+    }
+  } catch (er) { say(""); toast("Couldn't read that photo. Try another file."); return false; }
+  const base = {date: S.date, kind, amount, customerId: cid || null, customer: cid && S.customers[cid] ? S.customers[cid].name : null, img, by: S.me.id, at: new Date().toISOString(), status: S.sample ? "checking" : "pending", ref: null};
+  if (link) Object.assign(base, {entryId: link.id, entryDoc: link._doc, entryLabel: `${itemTitle(link).replace(/<[^>]*>/g, "")} · MVR ${n2(link.amount)} · ${hm(link.at)}`});
+  try { await S.db.doc("slips/" + id).set(base); } catch (er) { say(""); toast(dbErr(er)); return false; }
+  if (!S.sample) { say("Slip saved. Automatic checking isn't available here, so a manager will verify it."); return true; }
+  say("Reading the slip… the first check on a phone takes longer while the reader loads.");
+  try {
+    const ai = await runSlipCheck(id, blob, amount); const ev = await evaluateSlip(id, ai, amount);
+    await S.db.doc("slips/" + id).update({ai, ...ev});
+    say(ev.status === "verified" ? "Verified: account number and amount match." : (STATUS[ev.status][1] + ". " + ev.note));
+  } catch (er) {
+    try { await S.db.doc("slips/" + id).update({status: "pending", note: sampleErr(er)}); } catch {}
+    say(sampleErr(er));
+  }
+  return true;
+}
+function openSlipSheet(it) {
+  if (!it) return;
+  openSheet(`<form class="stack" id="asForm" autocomplete="off"><div class="row between"><h3>Add slip to this transaction</h3><button type="button" class="btn sm" data-close>Close</button></div>
+    <div class="banner"><b>${itemTitle(it)}</b><div class="small muted">${hm(it.at)} · ${esc(nameOf(it.by))} · MVR ${n2(it.amount)}</div></div>
+    <label class="f">Amount on slip (MVR)<input class="in num" id="asAmt" inputmode="decimal" value="${it.amount}" required></label>
+    <label class="f">Slip photo or screenshot<input class="in" type="file" id="asFile" accept="image/*" required></label>
+    <img id="asPrev" alt="" hidden style="max-height:220px;border-radius:8px;object-fit:contain;align-self:flex-start">
+    <button class="btn pri block" id="asBtn">Upload and check</button><div id="asStatus" class="small muted" role="status"></div></form>`, sheet => {
+    sheet.querySelector("#asForm").addEventListener("submit", async ev => {
+      ev.preventDefault(); const btn = sheet.querySelector("#asBtn");
+      const file = sheet.querySelector("#asFile").files[0]; const amt = r2(num(sheet.querySelector("#asAmt").value));
+      if (!file) return toast("Choose the slip photo"); if (!(amt > 0)) return toast("Enter the amount");
+      btn.disabled = true; btn.textContent = "Working…";
+      const ok = await uploadSlip({file, amount: amt, kind: "transfer", cid: it.customerId || "", link: it, statusEl: sheet.querySelector("#asStatus")});
+      btn.disabled = false; btn.textContent = ok ? "Done" : "Upload and check";
+      if (ok) { btn.type = "button"; btn.setAttribute("data-close", ""); }
+    });
+  });
+}
+function openEdit(it) {
+  if (!it) return;
+  const f = (lbl, idd, val, attrs = "") => `<label class="f">${lbl}<input class="in" id="${idd}" value="${esc(val ?? "")}" ${attrs}></label>`;
+  let fields = "";
+  if (it.t === "cash") fields = `<div class="row">${f("Litres", "edQty", it.qty, 'inputmode="decimal"')}${f("Rate", "edRate", it.rate, 'inputmode="decimal"')}</div><div class="row"><label class="f">Fuel<select class="in" id="edFuel">${FUELS.map(x => `<option value="${x}" ${x === it.fuel ? "selected" : ""}>${FUEL[x]}</option>`).join("")}</select></label><label class="f">Payment<select class="in" id="edPay"><option value="cash" ${it.pay === "cash" ? "selected" : ""}>Cash</option><option value="transfer" ${it.pay === "transfer" ? "selected" : ""}>Bank transfer</option></select></label></div>${f("Note", "edNote", it.note)}`;
+  if (it.t === "credit") fields = `<label class="f">Customer${custPicker("edCust", it.customerId)}</label><div class="row">${f("Litres", "edQty", it.qty, 'inputmode="decimal"')}${f("Rate", "edRate", it.rate, 'inputmode="decimal"')}</div><div class="row"><label class="f">Fuel<select class="in" id="edFuel">${FUELS.map(x => `<option value="${x}" ${x === it.fuel ? "selected" : ""}>${FUEL[x]}</option>`).join("")}</select></label>${f("PO No.", "edPo", it.po)}${f("D/No.", "edDno", it.dno)}</div>${f("Remarks", "edRem", it.remark)}`;
+  if (it.t === "collect") fields = `<label class="f">Customer${custPicker("edCust", it.customerId)}</label>${f("Amount", "edAmt", it.amount, 'inputmode="decimal"')}<div class="row"><label class="f">Paid by<select class="in" id="edPay"><option value="cash" ${it.pay === "cash" ? "selected" : ""}>Cash / cheque</option><option value="transfer" ${it.pay === "transfer" ? "selected" : ""}>Bank transfer</option></select></label>${f("Reference", "edRef", it.ref)}</div>${f("Remarks", "edRem", it.remark)}`;
+  if (it.t === "other") fields = `${f("Description", "edDesc", it.desc)}${f("Amount", "edAmt", it.amount, 'inputmode="decimal"')}<label class="f">Payment<select class="in" id="edPay"><option value="cash" ${it.pay === "cash" ? "selected" : ""}>Cash</option><option value="transfer" ${it.pay === "transfer" ? "selected" : ""}>Bank transfer</option></select></label>`;
+  openSheet(`<form class="stack" id="edForm"><div class="row between"><h3>Edit entry</h3><button type="button" class="btn sm" data-close>Cancel</button></div>${fields}<button class="btn pri block">Save changes</button></form>`, sheet => {
+    sheet.querySelector("#edForm").addEventListener("submit", async ev => {
+      ev.preventDefault(); const g = i => sheet.querySelector("#" + i); const p = {};
+      if (it.t === "cash" || it.t === "credit") { p.qty = r3(num(g("edQty").value)); p.rate = num(g("edRate").value); p.amount = r2(p.qty * p.rate); p.fuel = g("edFuel").value; if (!(p.qty > 0)) return toast("Enter litres"); }
+      if (it.t === "cash") { p.pay = g("edPay").value; p.note = g("edNote").value.trim() || null; }
+      if (it.t === "credit" || it.t === "collect") { const c = S.customers[g("edCust").value]; if (!c) return toast("Choose a customer"); p.customerId = g("edCust").value; p.customer = c.name; p.remark = g("edRem").value.trim() || null; }
+      if (it.t === "credit") { p.po = g("edPo").value.trim() || null; p.dno = g("edDno").value.trim() || null; }
+      if (it.t === "collect") { p.amount = r2(num(g("edAmt").value)); p.pay = g("edPay").value; p.ref = g("edRef").value.trim() || null; }
+      if (it.t === "other") { p.desc = g("edDesc").value.trim(); p.amount = r2(num(g("edAmt").value)); p.pay = g("edPay").value; }
+      p.before = {qty: it.qty ?? null, rate: it.rate ?? null, amount: it.amount};
+      if (await patchItem(it, p)) { closeSheet(); toast("Changes saved"); }
+    });
+  });
+}
+/* hook view-specific setup after render */
+const _renderAll = renderAll;
+renderAll = function () { _renderAll(); if (S.tab === "sell") { sellChips(); sellCalc(); } if (S.tab === "credit") crUpdate(true); };
+
+/* ---------- Firebase adapter: same small API the app was written against ---------- */
+function makeDb(fs) {
+  const wd = sn => ({id: sn.id, exists: sn.exists, data: () => sn.data(), metadata: sn.metadata});
+  const wq = q => ({docs: q.docs.map(wd), size: q.size, empty: q.empty, docChanges: () => q.docChanges(), metadata: q.metadata});
+  const docRef = path => { const r = fs.doc(path); return {id: r.id, path,
+    get: async () => wd(await r.get()), set: d => r.set(d), update: d => r.set(d, {merge: true}), delete: () => r.delete(),
+    onSnapshot: (n, e) => r.onSnapshot(sn => n(wd(sn)), e), collection: c => colRef(path + "/" + c)}; };
+  const query = q => ({where: (f, o, v) => query(q.where(f, o, v)), orderBy: (f, d) => query(q.orderBy(f, d || "asc")), limit: n => query(q.limit(n)),
+    get: async () => wq(await q.get()), onSnapshot: (n, e) => q.onSnapshot(sn => n(wq(sn)), e)});
+  const colRef = path => ({...query(fs.collection(path)), path, doc: id => docRef(path + "/" + (id || fs.collection(path).doc().id))});
+  return {doc: docRef, collection: colRef};
+}
+function authErr(e) {
+  const c = e && e.code || "";
+  if (/invalid-credential|wrong-password|user-not-found|invalid-login/.test(c)) return "Email or password is wrong.";
+  if (c.includes("email-already-in-use")) return "An account with this email already exists. Sign in instead.";
+  if (c.includes("weak-password")) return "Use a password of at least 6 characters.";
+  if (c.includes("invalid-email")) return "That email address doesn't look right.";
+  if (c.includes("too-many-requests")) return "Too many tries. Wait a few minutes and try again.";
+  if (c.includes("network")) return "No internet connection.";
+  return "Something went wrong. Try again.";
+}
+function authMsg(t, bad) { const el = $("#authMsg"); if (el) { el.textContent = t; el.style.color = bad ? "var(--bad)" : "var(--good)"; } }
+function showLogin(mode) {
+  mode = mode || "in"; $("#nav").innerHTML = ""; $("#datebox").hidden = true; renderWho();
+  $("#main").innerHTML = `<div class="splash stack" style="text-align:left;max-width:420px">
+    <div><h1>Huvath Fuel Sales</h1><p class="muted" style="margin:4px 0 0">Sign in to record sales and see reports.</p></div>
+    <div class="seg" role="group"><button type="button" data-act="authMode" data-v="in" aria-pressed="${mode === "in"}">Sign in</button><button type="button" data-act="authMode" data-v="up" aria-pressed="${mode === "up"}">Create account</button></div>
+    <form class="card stack" data-form="auth" data-mode="${mode}">
+      ${mode === "up" ? `<label class="f">Your name<input class="in" id="auName" autocomplete="name" required maxlength="40"></label>` : ""}
+      <label class="f">Email<input class="in" id="auEmail" type="email" autocomplete="email" required></label>
+      <label class="f">Password<input class="in" id="auPass" type="password" autocomplete="${mode === "up" ? "new-password" : "current-password"}" required minlength="6"></label>
+      <button class="btn pri block">${mode === "up" ? "Create account" : "Sign in"}</button>
+      ${mode === "in" ? `<button type="button" class="btn sm" data-act="forgot" style="align-self:flex-start">Forgot password?</button>` : `<p class="small muted" style="margin:0">After you sign up, the owner gives you a role before you can record sales.</p>`}
+      <div id="authMsg" class="small" role="status"></div></form></div>`;
+}
+async function doAuth(f) {
+  const email = $("#auEmail").value.trim(), pass = $("#auPass").value;
+  try {
+    if (f.dataset.mode === "up") {
+      const name = $("#auName").value.trim();
+      const cred = await S.auth.createUserWithEmailAndPassword(email, pass);
+      await cred.user.updateProfile({displayName: name});
+      S.me.name = name; S.names[cred.user.uid] = name;
+      S.db && S.db.doc("staff/" + cred.user.uid).update({name, email, seen: new Date().toISOString()}).catch(() => {});
+      cred.user.sendEmailVerification().catch(() => {});
+      refreshLive(); if (S.role === "none") renderAll();
+    } else await S.auth.signInWithEmailAndPassword(email, pass);
+  } catch (er) { authMsg(authErr(er), true); }
+}
+function teardown() {
+  [...S.unsubs, ...S.dateUnsubs].forEach(u => { try { u(); } catch {} }); S.unsubs = []; S.dateUnsubs = [];
+  S.db = null; S.role = "none"; S.roles = {}; S.staff = {}; S.customers = {}; S.items = []; S.allItems = []; S.entryDocs = []; S.slips = []; S.day = {};
+}
+function startSession(u) {
+  teardown(); S.db = makeDb(S.fs);
+  const owner = String(window.HUVATH_OWNER_EMAIL || "").toLowerCase(); const email = String(u.email || "").toLowerCase();
+  S.me = {id: u.uid, name: u.displayName || "", email: u.email, avatar: "", isOwner: !!owner && email === owner && u.emailVerified, ownerUnverified: !!owner && email === owner && !u.emailVerified};
+  if (S.me.name) S.names[u.uid] = S.me.name;
+  $("#datebox").hidden = false;
+  computeRole(); subscribeGlobal(); if (S.role !== "none") subscribeDate();
+  const p = {email: u.email || null, seen: new Date().toISOString()}; if (S.me.name) p.name = S.me.name;
+  S.db.doc("staff/" + u.uid).update(p).catch(() => {});
+  S.sample = true; S.assets = null; S.downloads = null;
+  renderAll();
+}
+function netBanner() {
+  let b = $("#netBanner");
+  if (!b) { b = document.createElement("div"); b.id = "netBanner"; b.className = "banner warn"; b.style.cssText = "position:fixed;left:12px;right:12px;top:calc(68px + env(safe-area-inset-top,0px));z-index:25;text-align:center"; b.textContent = "No internet. Sales are kept on this phone and sent when the connection returns."; document.body.appendChild(b); }
+  b.hidden = navigator.onLine;
+}
+async function boot() {
+  $("#dateIn").value = S.date;
+  window.addEventListener("online", netBanner); window.addEventListener("offline", netBanner); netBanner();
+  const cfg = window.HUVATH_FIREBASE;
+  if (!window.firebase || !cfg || !cfg.apiKey) {
+    $("#nav").innerHTML = ""; $("#datebox").hidden = true;
+    $("#main").innerHTML = `<div class="splash stack" style="text-align:left"><h1>Almost ready</h1><p>This website isn't connected to its database yet. Paste the Firebase settings into <b class="mono">firebase-config.js</b> (see README).</p></div>`; return;
+  }
+  firebase.initializeApp(cfg);
+  S.fs = firebase.firestore();
+  try { S.fs.settings({ignoreUndefinedProperties: true}); } catch {}
+  try { await S.fs.enablePersistence({synchronizeTabs: true}); } catch {}
+  S.auth = firebase.auth();
+  S.auth.onAuthStateChanged(u => { if (!u) { teardown(); showLogin("in"); } else startSession(u); });
+}
+boot();
+</script>
+</body>
+</html>

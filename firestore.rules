@@ -1,0 +1,61 @@
+rules_version = '2';
+// Huvath Fuel Sales — who can read and write what.
+// Paste this whole file into Firebase console → Firestore Database → Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    // Owner = this email, and only after the email is verified.
+    function isOwner() {
+      return signedIn() && request.auth.token.email == 'unooshahmed@gmail.com' && request.auth.token.email_verified == true;
+    }
+    function roleOf() {
+      return get(/databases/$(database)/documents/config/roles).data.users[request.auth.uid].role;
+    }
+    function hasRole(list) { return isOwner() || (signedIn() && roleOf() in list); }
+    function anyStaff() { return hasRole(['manager', 'cashier', 'accountant']); }
+
+    // Roles: only the owner can give or change access.
+    match /config/roles {
+      allow read: if signedIn();
+      allow write: if isOwner();
+    }
+    // Settings and customers: everyone signed in can read; owner and managers edit.
+    match /config/{doc} {
+      allow read: if signedIn();
+      allow write: if doc != 'roles' && hasRole(['manager']);
+    }
+    // Staff list: each person keeps their own name/email; staff can see the list.
+    match /staff/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || anyStaff();
+      allow create, update: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow delete: if isOwner();
+    }
+    // Sales: one document per person per day. Cashiers write only their own.
+    match /entries/{id} {
+      allow read: if anyStaff();
+      allow create: if hasRole(['manager', 'cashier']) && request.resource.data.uid == request.auth.uid;
+      allow update: if hasRole(['manager']) || (hasRole(['cashier']) && resource.data.uid == request.auth.uid);
+      allow delete: if isOwner();
+    }
+    // Daily readings, cash count, expenses. Cashiers can't change a closed day or close/reopen it.
+    match /days/{day} {
+      allow read: if anyStaff();
+      allow create: if hasRole(['manager']) || (hasRole(['cashier']) && request.resource.data.get('closed', false) == false);
+      allow update: if hasRole(['manager']) ||
+        (hasRole(['cashier']) && resource.data.get('closed', false) != true && request.resource.data.get('closed', false) == resource.data.get('closed', false));
+      allow delete: if isOwner();
+    }
+    // Bank slips. Only owner, managers and accountants can approve/reject.
+    match /slips/{id} {
+      allow read: if anyStaff();
+      allow create: if anyStaff() && request.resource.data.by == request.auth.uid;
+      allow update: if hasRole(['manager', 'accountant']) ||
+        (resource.data.by == request.auth.uid && request.resource.data.status in ['checking', 'pending', 'verified', 'review', 'mismatch']);
+      allow delete: if hasRole(['manager']);
+    }
+    match /slipimg/{id} {
+      allow read, create: if anyStaff();
+      allow delete: if hasRole(['manager']);
+    }
+  }
+}
