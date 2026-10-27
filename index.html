@@ -808,8 +808,8 @@ function viewDay() {
       <div class="card stack"><h3>Expenses</h3>
         ${locked ? "" : `<form class="stack" data-form="expense" autocomplete="off">
           <div class="row"><label class="f" style="flex:2">What for<input class="in" id="exDesc" required maxlength="80" placeholder="e.g. Generator repair"></label><label class="f">Amount (MVR)<input class="in num" id="exAmt" inputmode="decimal" required></label></div>
-          <div class="row"><label class="f">Category<select class="in" id="exCat">${EXP_CATS.map(c => `<option>${c}</option>`).join("")}</select></label><label class="f">Paid to<input class="in" id="exVen" maxlength="60" placeholder="Shop / person"></label><label class="f">Invoice no.<input class="in" id="exInv" maxlength="40"></label></div>
-          <label class="f">Invoice / bill photo<input class="in" type="file" id="exFiles" accept="image/*" multiple required></label>
+          <div class="row"><label class="f">Category<select class="in" id="exCat">${EXP_CATS.map(c => `<option ${c === "Other" ? "selected" : ""}>${c}</option>`).join("")}</select></label><label class="f">Paid to<input class="in" id="exVen" maxlength="60" placeholder="Shop / person"></label><label class="f">Invoice no.<input class="in" id="exInv" maxlength="40"></label></div>
+          <label class="f">Invoice / bill photo (optional, as proof)<input class="in" type="file" id="exFiles" accept="image/*" multiple></label>
           <button class="btn pri">Add expense</button><div id="exStatus" class="small muted" role="status"></div></form>`}
         <div class="list" data-live="expList"></div><input type="file" id="exMore" accept="image/*" multiple hidden></div>
       <div class="card stack"><h3>Cheques in hand</h3>
@@ -832,7 +832,7 @@ LIVE.tank = el => { const t = model().tanks.find(x => x.id === el.dataset.id); r
 const EXP_CATS = ["Electricity", "Water", "Salaries & wages", "Repairs & maintenance", "Transport", "Food & tea", "Office & stationery", "Bank charges", "Rent", "Other"];
 function expenseRow(e, ed, date) {
   const imgs = e.imgs || [];
-  return `<div class="li"><span class="dot"></span><div class="main"><b>${esc(e.desc)}</b>${imgs.length ? "" : ` <span class="pill bad">Invoice missing</span>`}
+  return `<div class="li"><span class="dot"></span><div class="main"><b>${esc(e.desc)}</b>${imgs.length ? ` <span class="pill good">Invoice ✓</span>` : ""}
     <div class="small muted">${date !== S.date ? dmy(date) + " · " : ""}${hm(e.at)} · ${esc(nameOf(e.by))}${e.cat ? " · " + esc(e.cat) : ""}${e.vendor ? " · " + esc(e.vendor) : ""}${e.inv ? " · Inv " + esc(e.inv) : ""}</div>
     ${imgs.length ? `<div class="row" style="margin-top:6px;gap:6px">${imgs.map(i => { const src = imgSrc("expenseimg", i); return src ? `<img class="slipimg" src="${esc(src)}" alt="Invoice" data-act="exView" data-id="${e.id}" data-date="${date}">` : `<div class="slipimg" data-act="exView" data-id="${e.id}" data-date="${date}"></div>`; }).join("")}</div>` : ""}</div>
     <div class="amt">${n2(e.amount)}</div>
@@ -1126,7 +1126,7 @@ function dailyHtml(m) {
   }).join("");
   const mt = m.meters.map(x => `<tr><td>${esc(x.name)}</td><td class="n">${nR(x.start)}</td><td class="n">${nR(x.end)}</td><td class="n">${x.sale == null ? "" : nR(x.sale)}</td></tr>`).join("");
   const tk = m.tanks.map(t => `<tr><td>${esc(t.name)}</td><td>${FUEL[t.fuel]}</td><td class="n">${nR(t.sounding)}</td><td class="n">${nR(t.bf)}</td><td class="n">${nR(t.cb)}</td><td class="n">${nR(t.loaded)}</td><td class="n">${nR(t.usage)}</td></tr>`).join("");
-  const ex = m.expenses.map(e => `<tr class="${(e.imgs || []).length ? "" : "bad"}"><td>${esc(e.desc)}${e.cat ? `<div class="small muted">${esc(e.cat)}${e.inv ? " · Inv " + esc(e.inv) : ""}</div>` : ""}</td><td class="n">${n2(e.amount)}</td><td>${(e.imgs || []).length ? "✓" : "MISSING"}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">None</td></tr>`;
+  const ex = m.expenses.map(e => `<tr><td>${esc(e.desc)}${e.cat ? `<div class="small muted">${esc(e.cat)}${e.inv ? " · Inv " + esc(e.inv) : ""}</div>` : ""}</td><td class="n">${n2(e.amount)}</td><td>${(e.imgs || []).length ? "✓" : "—"}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">None</td></tr>`;
   const mc = m.meterCheck.map(c => `<tr class="${c.status === "off" ? "bad" : ""}"><td>${FUEL[c.fuel]}</td><td class="n">${nR(c.start)}</td><td class="n">${nR(c.recorded)}</td><td class="n">${c.start == null ? "" : nR(r3(c.start + c.recorded))}</td><td class="n">${nR(c.end)}</td><td class="n">${c.diff == null ? "" : nR(c.diff)}</td><td>${c.status === "off" ? "MISMATCH" : c.status === "ok" ? "OK" : "No reading"}</td></tr>`).join("");
   return `<div class="card" style="padding:0;overflow:hidden">
     <div class="rep-head"><div><b>${esc(s.station)}</b><div class="small muted">${esc(s.address1)}<br>${esc(s.address2)}</div></div><div style="text-align:right"><b>Daily Sales Report</b><div class="mono">${dmy(m.date)}</div></div></div>
@@ -1223,8 +1223,7 @@ function renderExpensesOut() {
   const byCat = {}; rows.forEach(e => byCat[e.cat || "Other"] = r2((byCat[e.cat || "Other"] || 0) + num(e.amount)));
   const total = r2(rows.reduce((a, e) => a + num(e.amount), 0)); const missing = rows.filter(e => !(e.imgs || []).length).length;
   box.innerHTML = `<div class="stack"><div class="row"><button class="btn pri" data-act="dlExp" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlExp" data-f="xlsx">Download Excel</button></div>
-    ${missing ? `<div class="alarm"><b class="t">⚠ ${plural(missing, "expense has", "expenses have")} no invoice photo</b><div class="small">They're marked in red below. Open that day on the Meters page and tap Add invoice.</div></div>` : ""}
-    <div class="kpis"><div class="kpi"><div class="l">Total expenses</div><div class="v">${n2(total)}</div><div class="s">MVR · ${plural(rows.length, "expense", "expenses")}</div></div>${Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="kpi"><div class="l">${esc(c)}</div><div class="v">${n2(v)}</div><div class="s">MVR</div></div>`).join("")}</div>
+    <div class="kpis"><div class="kpi"><div class="l">Total expenses</div><div class="v">${n2(total)}</div><div class="s">MVR · ${plural(rows.length, "expense", "expenses")} · ${rows.length - missing} with invoice</div></div>${Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="kpi"><div class="l">${esc(c)}</div><div class="v">${n2(v)}</div><div class="s">MVR</div></div>`).join("")}</div>
     <div class="card"><h3>Expenses · ${dmy(S.sub.exFrom)} to ${dmy(S.sub.exTo)}</h3><div class="list">${rows.length ? rows.map(e => expenseRow(e, false, e.date)).join("") : `<div class="empty">No expenses match.</div>`}</div></div></div>`;
 }
 /* --- exports --- */
@@ -1274,7 +1273,7 @@ function dailyPdf(m) {
     y = Math.max(a, b) + 12;
   };
   half({head: [["Meter Name", "Start", "End", "Sale (L)"]], body: m.meters.map(x => [x.name, fmtL(x.start), fmtL(x.end), fmtL(x.sale)]), columnStyles: {1: R, 2: R, 3: R}},
-    {head: [["Expenses", "Inv. no.", "Amount", "Invoice"]], body: [...m.expenses.map(e => { const st5 = (e.imgs || []).length ? {} : {fillColor: RED_SOFT, textColor: RED, fontStyle: "bold"}; return [e.desc, e.inv || "", n2(e.amount), (e.imgs || []).length ? "Yes" : "MISSING"].map(v => ({content: v, styles: st5})); }), [{content: "Total", colSpan: 2, styles: {fontStyle: "bold"}}, {content: n2(m.expTotal), styles: {fontStyle: "bold"}}, ""]], columnStyles: {2: R}});
+    {head: [["Expenses", "Inv. no.", "Amount", "Invoice"]], body: [...m.expenses.map(e => { return [e.desc, e.inv || "", n2(e.amount), (e.imgs || []).length ? "Yes" : "-"]; }), [{content: "Total", colSpan: 2, styles: {fontStyle: "bold"}}, {content: n2(m.expTotal), styles: {fontStyle: "bold"}}, ""]], columnStyles: {2: R}});
   doc.autoTable({startY: y, head: [["Tank No.", "Fuel", "Start Sounding", "Bal. B/F", "Bal. C/B", "Qty Loaded", "Used"]], body: m.tanks.map(t => [t.name, FUEL[t.fuel], fmtL(t.sounding), fmtL(t.bf), fmtL(t.cb), fmtL(t.loaded), fmtL(t.usage)]),
     theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {2: R, 3: R, 4: R, 5: R, 6: R}});
   y = doc.lastAutoTable.finalY + 12;
@@ -1371,7 +1370,7 @@ async function dailyXlsx(m) {
   if (m.expenses.length) {
     const w6 = wb.addWorksheet("Expenses"); w6.columns = [8, 30, 20, 22, 14, 12, 10, 18].map(w => ({width: w}));
     xTable(w6, 1, 1, ["Time", "What for", "Category", "Paid to", "Invoice no.", "Amount", "Invoice", "Entered by"],
-      [...m.expenses.map(e => ({kind: (e.imgs || []).length ? "" : "bad", v: [hm(e.at), e.desc, e.cat || "", e.vendor || "", e.inv || "", num(e.amount), (e.imgs || []).length ? "Yes" : "MISSING", nameOf(e.by)]})), {kind: "total", v: ["Total", "", "", "", "", m.expTotal, "", ""]}]);
+      [...m.expenses.map(e => [hm(e.at), e.desc, e.cat || "", e.vendor || "", e.inv || "", num(e.amount), (e.imgs || []).length ? "Yes" : "", nameOf(e.by)]), {kind: "total", v: ["Total", "", "", "", "", m.expTotal, "", ""]}]);
   }
   if (m.receipts.length) {
     /* expenses sheet is added below with the other detail sheets */
@@ -1564,7 +1563,7 @@ document.addEventListener("click", async e => {
     case "dlExp": await download(async () => {
       const rows = S.sub.exRows; if (!rows) throw new Error("Show the expenses first."); const sub = `${dmy(S.sub.exFrom)} to ${dmy(S.sub.exTo)}`;
       const cols = ["Date", "What for", "Category", "Paid to", "Invoice no.", "Amount", "Invoice", "Entered by"];
-      const data = rows.map(e => [dmy(e.date), e.desc, e.cat || "", e.vendor || "", e.inv || "", num(e.amount), (e.imgs || []).length ? "Yes" : "MISSING", nameOf(e.by)]);
+      const data = rows.map(e => [dmy(e.date), e.desc, e.cat || "", e.vendor || "", e.inv || "", num(e.amount), (e.imgs || []).length ? "Yes" : "", nameOf(e.by)]);
       const tot = ["TOTAL", "", "", "", "", r2(rows.reduce((a, e) => a + num(e.amount), 0)), "", ""];
       const secs = [{title: "Expenses" + (S.sub.exCatF ? " · " + S.sub.exCatF : ""), sheet: "Expenses", cols, rows: data, tot, text: [1, 2, 3, 4, 6, 7]}];
       return b.dataset.f === "pdf" ? [`Expenses ${sub}.pdf`, tablePdf("Expenses", sub, secs)] : [`Expenses ${sub}.xlsx`, await tableXlsx("Expenses", sub, secs)];
@@ -1686,9 +1685,9 @@ async function handleForm(kind, f) {
   }
   if (kind === "expense") {
     const amt = r2(num($("#exAmt").value)); if (!(amt > 0)) return toast("Enter an amount");
-    const files = [...$("#exFiles").files]; if (!files.length) return toast("Add a photo of the invoice or bill");
-    const id = newId(); $("#exStatus").textContent = "Uploading invoice…";
-    let imgs; try { imgs = await saveImages("expenseimg", files, {expense: id}); } catch (er) { $("#exStatus").textContent = ""; return toast(er && er.code ? dbErr(er) : "Couldn't read the photo. Try again."); }
+    const files = [...$("#exFiles").files];
+    const id = newId(); if (files.length) $("#exStatus").textContent = "Uploading invoice…";
+    let imgs = []; try { if (files.length) imgs = await saveImages("expenseimg", files, {expense: id}); } catch (er) { $("#exStatus").textContent = ""; return toast(er && er.code ? dbErr(er) : "Couldn't read the photo. Try again."); }
     await patchDay({expenses: {[id]: {desc: $("#exDesc").value.trim(), amount: amt, cat: $("#exCat").value, vendor: $("#exVen").value.trim() || null, inv: $("#exInv").value.trim() || null, imgs, by: S.me.id, at: new Date().toISOString()}}});
     $("#exStatus").textContent = ""; f.reset(); toast("Expense added");
   }
