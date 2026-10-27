@@ -72,6 +72,11 @@ service cloud.firestore {
       allow create: if hasRole(['manager', 'cashier']);
       allow delete: if hasRole(['manager']);
     }
+    match /expenseimg/{id} {
+      allow read: if anyStaff();
+      allow create: if hasRole(['manager', 'cashier']);
+      allow delete: if hasRole(['manager']);
+    }
     match /slipimg/{id} {
       allow read, create: if anyStaff();
       allow delete: if hasRole(['manager']);

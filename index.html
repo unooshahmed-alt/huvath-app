@@ -422,7 +422,7 @@ function buildDaily({date, items, day, slips, settings, prevDay, receipts}) {
     ? `${FUEL[c.fuel]} meter shows ${nL(c.meter)} L sold, but the sales sheet has only ${nL(c.recorded)} L. ${nL(c.diff)} L (about MVR ${n2(c.value)}) is missing from the sales sheet.`
     : `${FUEL[c.fuel]}: the sales sheet has ${nL(c.recorded)} L, but the meter shows only ${nL(c.meter)} L sold. ${nL(-c.diff)} L too many recorded. Check for double entries or a wrong meter reading.`}));
   const received = {petrol: 0, diesel: 0}; receipts.forEach(x => received[x.fuel] = r3((received[x.fuel] || 0) + num(x.qty)));
-  return {date, settings, receipts, received, missingNotes: receipts.filter(x => !(x.imgs || []).length).length, rows, T, rec, recAmt, meters, meterSale, meterCheck, meterAlerts, mismatchNote: day.mismatchNote || "", tanks, expenses, expTotal, deposits, transfers: r2(transfers), transferSlips,
+  return {date, settings, receipts, received, missingNotes: receipts.filter(x => !(x.imgs || []).length).length, missingInvoices: expenses.filter(e => !(e.imgs || []).length).length, rows, T, rec, recAmt, meters, meterSale, meterCheck, meterAlerts, mismatchNote: day.mismatchNote || "", tanks, expenses, expTotal, deposits, transfers: r2(transfers), transferSlips,
     denoms, coins, notesTotal, cheques, chequeTotal, counted, expected, cashDiff: r2(counted - expected), cashCounted: counted > 0,
     slips, notes: day.notes || "", closed: !!day.closed, closedBy: day.closedBy, items: live, count: live.length};
 }
@@ -806,8 +806,12 @@ function viewDay() {
         ${["sounding", "bf", "loaded", "cb"].map(k => `<td><input class="in num" style="width:110px;text-align:right" inputmode="decimal" data-bind="tanks.${t.id}.${k}" aria-label="${k}" ${dis}></td>`).join("")}<td class="n" data-live="tank" data-id="${esc(t.id)}"></td></tr>`).join("")}</tbody></table></div></div>
     <div class="grid2">
       <div class="card stack"><h3>Expenses</h3>
-        ${locked ? "" : `<form class="row" data-form="expense" autocomplete="off"><input class="in" id="exDesc" placeholder="What for" required maxlength="80" style="flex:2;min-width:140px"><input class="in num" id="exAmt" placeholder="MVR" inputmode="decimal" required style="flex:1;min-width:90px"><button class="btn">Add</button></form>`}
-        <div class="list" data-live="expList"></div></div>
+        ${locked ? "" : `<form class="stack" data-form="expense" autocomplete="off">
+          <div class="row"><label class="f" style="flex:2">What for<input class="in" id="exDesc" required maxlength="80" placeholder="e.g. Generator repair"></label><label class="f">Amount (MVR)<input class="in num" id="exAmt" inputmode="decimal" required></label></div>
+          <div class="row"><label class="f">Category<select class="in" id="exCat">${EXP_CATS.map(c => `<option>${c}</option>`).join("")}</select></label><label class="f">Paid to<input class="in" id="exVen" maxlength="60" placeholder="Shop / person"></label><label class="f">Invoice no.<input class="in" id="exInv" maxlength="40"></label></div>
+          <label class="f">Invoice / bill photo<input class="in" type="file" id="exFiles" accept="image/*" multiple required></label>
+          <button class="btn pri">Add expense</button><div id="exStatus" class="small muted" role="status"></div></form>`}
+        <div class="list" data-live="expList"></div><input type="file" id="exMore" accept="image/*" multiple hidden></div>
       <div class="card stack"><h3>Cheques in hand</h3>
         ${locked ? "" : `<form class="row" data-form="cheque" autocomplete="off"><input class="in" id="chNo" placeholder="Cheque no. / bank" required maxlength="60" style="flex:2;min-width:140px"><input class="in num" id="chAmt" placeholder="MVR" inputmode="decimal" required style="flex:1;min-width:90px"><button class="btn">Add</button></form>`}
         <div class="list" data-live="chqList"></div></div>
@@ -825,10 +829,41 @@ function meterStat(id) {
   return `<span>Meter sale <b>${mt.sale == null ? "—" : nL(mt.sale) + " L"}</b></span><span>Recorded <b>${nL(m.rec[mt.fuel])} L</b></span>${c && c.status !== "pending" ? `<span class="pill ${c.status === "ok" ? "good" : "bad"}">${c.status === "ok" ? "Matches" : "Diff " + (c.diff > 0 ? "+" : "") + nL(c.diff) + " L"}</span>` : ""}${mt.startFromPrev ? `<span class="small muted">Start carried from previous day</span>` : ""}`;
 }
 LIVE.tank = el => { const t = model().tanks.find(x => x.id === el.dataset.id); return t && t.usage != null ? nL(t.usage) : "—"; };
+const EXP_CATS = ["Electricity", "Water", "Salaries & wages", "Repairs & maintenance", "Transport", "Food & tea", "Office & stationery", "Bank charges", "Rent", "Other"];
+function expenseRow(e, ed, date) {
+  const imgs = e.imgs || [];
+  return `<div class="li"><span class="dot"></span><div class="main"><b>${esc(e.desc)}</b>${imgs.length ? "" : ` <span class="pill bad">Invoice missing</span>`}
+    <div class="small muted">${date !== S.date ? dmy(date) + " · " : ""}${hm(e.at)} · ${esc(nameOf(e.by))}${e.cat ? " · " + esc(e.cat) : ""}${e.vendor ? " · " + esc(e.vendor) : ""}${e.inv ? " · Inv " + esc(e.inv) : ""}</div>
+    ${imgs.length ? `<div class="row" style="margin-top:6px;gap:6px">${imgs.map(i => { const src = imgSrc("expenseimg", i); return src ? `<img class="slipimg" src="${esc(src)}" alt="Invoice" data-act="exView" data-id="${e.id}" data-date="${date}">` : `<div class="slipimg" data-act="exView" data-id="${e.id}" data-date="${date}"></div>`; }).join("")}</div>` : ""}</div>
+    <div class="amt">${n2(e.amount)}</div>
+    ${date === S.date ? `<div class="acts">${ed && (can("editAny") || e.by === S.me.id) ? `<button class="btn sm" data-act="exAddPhoto" data-id="${e.id}">${imgs.length ? "Add photo" : "Add invoice"}</button>` : ""}${ed && can("editAny") ? `<button class="btn sm danger" data-act="delExp" data-id="${e.id}">Delete</button>` : ""}</div>` : ""}</div>`;
+}
+/* image docs (dataURL) shared helper: receiptimg / expenseimg */
+const IMGC = {};
+function imgSrc(coll, id) {
+  const k = coll + "/" + id; if (IMGC[k]) return IMGC[k];
+  if (IMGC[k] === undefined) { IMGC[k] = ""; S.db.doc(k).get().then(g => { if (g.exists) { IMGC[k] = g.data().data; refreshLive(); if (S.sub.exOut) renderExpensesOut(); } }).catch(() => {}); }
+  return "";
+}
+async function saveImages(coll, files, extra) {
+  const ids = [];
+  for (const file of files) {
+    let q = .62, small; for (let i = 0; i < 4; i++) { small = await compressImage(file, 1400 - i * 200, q); if (small.blob.size < 200000) break; q -= .1; }
+    const dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(small.blob); });
+    const id = newId(); await S.db.doc(coll + "/" + id).set({data: dataUrl, date: S.date, by: S.me.id, ...extra}); IMGC[coll + "/" + id] = dataUrl; ids.push(id);
+  }
+  return ids;
+}
+function viewExpense(e) {
+  if (!e) return;
+  openSheet(`<div class="stack"><div class="row between"><h3>${esc(e.desc)} · MVR ${n2(e.amount)}</h3><button class="btn sm" data-close>Close</button></div>
+    <div class="small muted">${[e.cat, e.vendor, e.inv && "Invoice " + e.inv, nameOf(e.by)].filter(Boolean).map(esc).join(" · ")}</div>
+    ${(e.imgs || []).map(i => `<img src="${esc(imgSrc("expenseimg", i))}" alt="Invoice page" style="width:100%;border-radius:8px;background:var(--surface-2);min-height:80px">`).join("") || `<div class="empty">No invoice photo.</div>`}</div>`);
+}
 LIVE.expList = () => {
   const m = model(); const ed = !dayLocked() && !dateLocked();
   if (!m.expenses.length) return `<div class="empty">No expenses for this day.</div>`;
-  return m.expenses.map(e => `<div class="li"><span class="dot"></span><div class="main"><b>${esc(e.desc)}</b><div class="small muted">${hm(e.at)} · ${esc(nameOf(e.by))}</div></div><div class="amt">${n2(e.amount)}</div>${ed && can("editAny") ? `<div class="acts"><button class="btn sm danger" data-act="delExp" data-id="${e.id}">Delete</button></div>` : ""}</div>`).join("") +
+  return m.expenses.map(e => expenseRow(e, ed, S.date)).join("") +
     `<div class="row between" style="padding-top:8px;font-weight:700"><span>Total</span><span class="num">${n2(m.expTotal)}</span></div>`;
 };
 LIVE.chqList = () => {
@@ -1071,11 +1106,12 @@ async function evaluateSlip(id, ai, enteredAmt) {
 /* --- REPORTS --- */
 function viewReports() {
   const m = S.reportMode;
-  const seg = [["daily", "Daily report"], ["range", "Date range"], ["statement", "Customer statement"], ["log", "Changes log"]];
+  const seg = [["daily", "Daily report"], ["range", "Date range"], ["expenses", "Expenses"], ["statement", "Customer statement"], ["log", "Changes log"]];
   let body = "";
   if (m === "daily") body = `<div data-live="meterAlert"></div><div class="row"><button class="btn pri" data-act="dlDaily" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlDaily" data-f="xlsx">Download Excel</button><span class="small muted">Same layout as your daily sales sheet.</span></div><div data-live="dailyReport"></div>`;
   if (m === "range") body = `<form class="card row" data-form="range"><label class="f">From<input class="in" type="date" id="rgFrom" value="${S.sub.rgFrom || S.date.slice(0, 8) + "01"}" required></label><label class="f">To<input class="in" type="date" id="rgTo" value="${S.sub.rgTo || S.date}" required></label><button class="btn pri" style="align-self:flex-end">Show</button></form><div id="rangeOut">${S.sub.rangeHtml || ""}</div>`;
   if (m === "statement") body = `<form class="card row" data-form="statement"><label class="f" style="flex:2">Customer${custPicker("stCust", S.sub.stCust)}</label><label class="f">From<input class="in" type="date" id="stFrom" value="${S.sub.stFrom || S.date.slice(0, 8) + "01"}" required></label><label class="f">To<input class="in" type="date" id="stTo" value="${S.sub.stTo || S.date}" required></label><button class="btn pri" style="align-self:flex-end">Show</button></form><div id="stOut">${S.sub.stHtml || ""}</div>`;
+  if (m === "expenses") body = `<form class="card row" data-form="expenses"><label class="f">From<input class="in" type="date" id="exFrom" value="${S.sub.exFrom || S.date.slice(0, 8) + "01"}" required></label><label class="f">To<input class="in" type="date" id="exTo" value="${S.sub.exTo || S.date}" required></label><label class="f">Category<select class="in" id="exCatF"><option value="">All</option>${EXP_CATS.map(c => `<option ${S.sub.exCatF === c ? "selected" : ""}>${c}</option>`).join("")}</select></label><label class="f">Search<input class="in" id="exQ" value="${esc(S.sub.exQ || "")}" placeholder="Invoice no., shop…"></label><button class="btn pri" style="align-self:flex-end">Show</button></form><div id="exOut"></div>`;
   if (m === "log") body = `<div class="card"><h3>Edited and deleted entries · ${dmy(S.date)}</h3><div class="list" data-live="changeLog"></div></div>`;
   return `<div class="stack"><div class="pagehead"><div><h2>Reports</h2><p>Download as PDF or Excel.</p></div></div>
     <div class="seg" role="group" style="flex-wrap:wrap">${seg.map(([k, l]) => `<button type="button" data-act="reportMode" data-v="${k}" aria-pressed="${m === k}">${l}</button>`).join("")}</div>${body}</div>`;
@@ -1090,14 +1126,14 @@ function dailyHtml(m) {
   }).join("");
   const mt = m.meters.map(x => `<tr><td>${esc(x.name)}</td><td class="n">${nR(x.start)}</td><td class="n">${nR(x.end)}</td><td class="n">${x.sale == null ? "" : nR(x.sale)}</td></tr>`).join("");
   const tk = m.tanks.map(t => `<tr><td>${esc(t.name)}</td><td>${FUEL[t.fuel]}</td><td class="n">${nR(t.sounding)}</td><td class="n">${nR(t.bf)}</td><td class="n">${nR(t.cb)}</td><td class="n">${nR(t.loaded)}</td><td class="n">${nR(t.usage)}</td></tr>`).join("");
-  const ex = m.expenses.map(e => `<tr><td>${esc(e.desc)}</td><td class="n">${n2(e.amount)}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">None</td></tr>`;
+  const ex = m.expenses.map(e => `<tr class="${(e.imgs || []).length ? "" : "bad"}"><td>${esc(e.desc)}${e.cat ? `<div class="small muted">${esc(e.cat)}${e.inv ? " · Inv " + esc(e.inv) : ""}</div>` : ""}</td><td class="n">${n2(e.amount)}</td><td>${(e.imgs || []).length ? "✓" : "MISSING"}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">None</td></tr>`;
   const mc = m.meterCheck.map(c => `<tr class="${c.status === "off" ? "bad" : ""}"><td>${FUEL[c.fuel]}</td><td class="n">${nR(c.start)}</td><td class="n">${nR(c.recorded)}</td><td class="n">${c.start == null ? "" : nR(r3(c.start + c.recorded))}</td><td class="n">${nR(c.end)}</td><td class="n">${c.diff == null ? "" : nR(c.diff)}</td><td>${c.status === "off" ? "MISMATCH" : c.status === "ok" ? "OK" : "No reading"}</td></tr>`).join("");
   return `<div class="card" style="padding:0;overflow:hidden">
     <div class="rep-head"><div><b>${esc(s.station)}</b><div class="small muted">${esc(s.address1)}<br>${esc(s.address2)}</div></div><div style="text-align:right"><b>Daily Sales Report</b><div class="mono">${dmy(m.date)}</div></div></div>
     <div class="tw" style="border-radius:0;border-left:0;border-right:0"><table><thead><tr><th>PO No.</th><th>D/No.</th><th>Customer name</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Cash sales</th><th class="n">Credit sales</th><th class="n">Credit collection</th><th class="n">Total cash</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="grid2" style="padding:14px">
       <div class="tw"><table><thead><tr><th>Meter name</th><th class="n">Start</th><th class="n">End</th><th class="n">Sale (L)</th></tr></thead><tbody>${mt}</tbody></table></div>
-      <div class="tw"><table><thead><tr><th>Expenses</th><th class="n">Amount</th></tr></thead><tbody>${ex}<tr class="tot"><td>Total</td><td class="n">${n2(m.expTotal)}</td></tr></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>Expenses</th><th class="n">Amount</th><th>Invoice</th></tr></thead><tbody>${ex}<tr class="tot"><td>Total</td><td class="n">${n2(m.expTotal)}</td><td></td></tr></tbody></table></div>
     </div>
     <div style="padding:0 14px 14px" class="stack">
       ${m.receipts.length ? `<div class="tw"><table><thead><tr><th>Stock received</th><th>Fuel</th><th>Tank</th><th>D/N No.</th><th>Supplier</th><th>Vehicle</th><th class="n">Litres</th><th class="n">Amount</th><th>Note photos</th></tr></thead><tbody>${m.receipts.map(x => `<tr class="${(x.imgs || []).length ? "" : "bad"}"><td>${hm(x.at)}</td><td>${FUEL[x.fuel]}</td><td>${esc(tankName(x.tankId))}</td><td>${esc(x.dno)}</td><td>${esc(x.supplier || "")}</td><td>${esc(x.vehicle || "")}</td><td class="n">${nR(x.qty)}</td><td class="n">${x.amount ? n2(x.amount) : ""}</td><td>${(x.imgs || []).length || "MISSING"}</td></tr>`).join("")}<tr class="tot"><td colspan="6">Total received · Petrol ${nL(m.received.petrol)} L · Diesel ${nL(m.received.diesel)} L</td><td class="n">${nR(r3(m.received.petrol + m.received.diesel))}</td><td class="n">${n2(m.receipts.reduce((a, x) => a + num(x.amount), 0))}</td><td></td></tr></tbody></table></div>` : ""}
@@ -1182,6 +1218,15 @@ function statementHtml(M) {
   <tr class="tot"><td colspan="5">Balance due</td><td class="n">${n2(M.close)}</td></tr></tbody></table></div></div></div>`;
 }
 
+function renderExpensesOut() {
+  const box = $("#exOut"); if (!box || !S.sub.exRows) return; const rows = S.sub.exRows;
+  const byCat = {}; rows.forEach(e => byCat[e.cat || "Other"] = r2((byCat[e.cat || "Other"] || 0) + num(e.amount)));
+  const total = r2(rows.reduce((a, e) => a + num(e.amount), 0)); const missing = rows.filter(e => !(e.imgs || []).length).length;
+  box.innerHTML = `<div class="stack"><div class="row"><button class="btn pri" data-act="dlExp" data-f="pdf">Download PDF</button><button class="btn pri" data-act="dlExp" data-f="xlsx">Download Excel</button></div>
+    ${missing ? `<div class="alarm"><b class="t">⚠ ${plural(missing, "expense has", "expenses have")} no invoice photo</b><div class="small">They're marked in red below. Open that day on the Meters page and tap Add invoice.</div></div>` : ""}
+    <div class="kpis"><div class="kpi"><div class="l">Total expenses</div><div class="v">${n2(total)}</div><div class="s">MVR · ${plural(rows.length, "expense", "expenses")}</div></div>${Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="kpi"><div class="l">${esc(c)}</div><div class="v">${n2(v)}</div><div class="s">MVR</div></div>`).join("")}</div>
+    <div class="card"><h3>Expenses · ${dmy(S.sub.exFrom)} to ${dmy(S.sub.exTo)}</h3><div class="list">${rows.length ? rows.map(e => expenseRow(e, false, e.date)).join("") : `<div class="empty">No expenses match.</div>`}</div></div></div>`;
+}
 /* --- exports --- */
 async function saveFile(filename, blob) {
   const url = URL.createObjectURL(blob); const a = document.createElement("a");
@@ -1229,7 +1274,7 @@ function dailyPdf(m) {
     y = Math.max(a, b) + 12;
   };
   half({head: [["Meter Name", "Start", "End", "Sale (L)"]], body: m.meters.map(x => [x.name, fmtL(x.start), fmtL(x.end), fmtL(x.sale)]), columnStyles: {1: R, 2: R, 3: R}},
-    {head: [["Expenses", "Amount"]], body: [...m.expenses.map(e => [e.desc, n2(e.amount)]), [{content: "Total", styles: {fontStyle: "bold"}}, {content: n2(m.expTotal), styles: {fontStyle: "bold"}}]], columnStyles: {1: R}});
+    {head: [["Expenses", "Inv. no.", "Amount", "Invoice"]], body: [...m.expenses.map(e => { const st5 = (e.imgs || []).length ? {} : {fillColor: RED_SOFT, textColor: RED, fontStyle: "bold"}; return [e.desc, e.inv || "", n2(e.amount), (e.imgs || []).length ? "Yes" : "MISSING"].map(v => ({content: v, styles: st5})); }), [{content: "Total", colSpan: 2, styles: {fontStyle: "bold"}}, {content: n2(m.expTotal), styles: {fontStyle: "bold"}}, ""]], columnStyles: {2: R}});
   doc.autoTable({startY: y, head: [["Tank No.", "Fuel", "Start Sounding", "Bal. B/F", "Bal. C/B", "Qty Loaded", "Used"]], body: m.tanks.map(t => [t.name, FUEL[t.fuel], fmtL(t.sounding), fmtL(t.bf), fmtL(t.cb), fmtL(t.loaded), fmtL(t.usage)]),
     theme: "grid", styles: {fontSize: 7.5, cellPadding: 2.5}, headStyles: {fillColor: TEAL}, margin: {left: 36, right: 36}, columnStyles: {2: R, 3: R, 4: R, 5: R, 6: R}});
   y = doc.lastAutoTable.finalY + 12;
@@ -1256,7 +1301,7 @@ function tablePdf(title, sub, sections) {
   const doc = pdfDoc(title, sub); let y = 70;
   for (const sc of sections) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(sc.title, 36, y + 6); y += 12;
-    doc.autoTable({startY: y, head: [sc.cols], body: sc.rows.map(r => r.map((v, i) => i === 0 || sc.text?.includes(i) ? (v ?? "") : (v == null ? "" : String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)))), foot: sc.tot ? [sc.tot.map((v, i) => i ? (String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)) : v)] : undefined,
+    doc.autoTable({startY: y, head: [sc.cols], body: sc.rows.map(r => r.map((v, i) => i === 0 || sc.text?.includes(i) ? (v ?? "") : (v == null ? "" : String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)))), foot: sc.tot ? [sc.tot.map((v, i) => i && v !== "" && v != null ? (String(sc.cols[i]).includes(" L") ? nR(v) : n2(v)) : v)] : undefined,
       theme: "grid", styles: {fontSize: sc.cols.length > 10 ? 6 : 7.5, cellPadding: 2}, headStyles: {fillColor: TEAL, fontSize: sc.cols.length > 10 ? 5.8 : 7.5}, footStyles: {fillColor: [225, 230, 228], textColor: 20}, margin: {left: 36, right: 36},
       columnStyles: Object.fromEntries(sc.cols.map((c, i) => [i, i === 0 || sc.text?.includes(i) ? {} : {halign: "right"}])),
       didParseCell: d => { if (d.section === "body" && isBadCell(sc.cols, d.column.index, sc.rows[d.row.index] && sc.rows[d.row.index][d.column.index])) { d.cell.styles.fillColor = RED_SOFT; d.cell.styles.textColor = RED; d.cell.styles.fontStyle = "bold"; } }});
@@ -1323,7 +1368,13 @@ async function dailyXlsx(m) {
   const w3 = wb.addWorksheet("Sales Log"); w3.columns = [8, 14, 10, 24, 10, 9, 12, 10, 12, 10, 18, 26].map(w => ({width: w}));
   xTable(w3, 1, 1, ["Time", "Type", "Fuel", "Customer / item", "Qty (L)", "Rate", "Amount", "Payment", "PO No.", "D/No.", "Staff", "Remarks"],
     m.items.map(i => [hm(i.at), {cash: "Cash sale", credit: "Credit sale", collect: "Payment", other: "Other income"}[i.t], FUEL[i.fuel] || "", i.customer || i.desc || "", i.qty ?? "", i.rate ?? "", i.amount, i.t === "credit" ? "Credit" : (i.pay || "cash"), i.po || "", i.dno || "", nameOf(i.by), [i.note, i.remark, i.ref].filter(Boolean).join(" · ")]), {litreCols: [4]});
+  if (m.expenses.length) {
+    const w6 = wb.addWorksheet("Expenses"); w6.columns = [8, 30, 20, 22, 14, 12, 10, 18].map(w => ({width: w}));
+    xTable(w6, 1, 1, ["Time", "What for", "Category", "Paid to", "Invoice no.", "Amount", "Invoice", "Entered by"],
+      [...m.expenses.map(e => ({kind: (e.imgs || []).length ? "" : "bad", v: [hm(e.at), e.desc, e.cat || "", e.vendor || "", e.inv || "", num(e.amount), (e.imgs || []).length ? "Yes" : "MISSING", nameOf(e.by)]})), {kind: "total", v: ["Total", "", "", "", "", m.expTotal, "", ""]}]);
+  }
   if (m.receipts.length) {
+    /* expenses sheet is added below with the other detail sheets */
     const w5 = wb.addWorksheet("Stock Received"); w5.columns = [8, 10, 18, 14, 22, 14, 12, 10, 12, 10, 18, 30].map(w => ({width: w}));
     xTable(w5, 1, 1, ["Time", "Fuel", "Tank", "D/N No.", "Supplier", "Vehicle", "Litres", "Rate", "Amount", "Photos", "Received by", "Note"],
       [...m.receipts.map(x => ({kind: (x.imgs || []).length ? "" : "bad", v: [hm(x.at), FUEL[x.fuel], tankName(x.tankId), x.dno || "", x.supplier || "", x.vehicle || "", num(x.qty), x.rate ? num(x.rate) : "", x.amount ? num(x.amount) : "", (x.imgs || []).length || "MISSING", nameOf(x.by), x.note || ""]})),
@@ -1462,6 +1513,8 @@ document.addEventListener("click", async e => {
       if (!S.day.closed && !confirmTap(b)) return;
       if (await patchDay(S.day.closed ? {closed: false, reopenedBy: S.me.id, reopenedAt: new Date().toISOString()} : {closed: true, closedBy: S.me.id, closedAt: new Date().toISOString()})) { toast(S.day.closed ? "Day reopened" : "Day closed"); setTimeout(renderAll, 300); }
       break;
+    case "exView": { const d = b.dataset.date; const e = d === S.date ? model().expenses.find(x => x.id === id) : (S.sub.exRows || []).find(x => x.id === id); viewExpense(e); break; }
+    case "exAddPhoto": S.sub.exAddTo = id; $("#exMore").click(); break;
     case "rcFuel": S.sellFuel = b.dataset.fuel; ls.set("huvath.fuel", S.sellFuel); renderAll(); break;
     case "rcView": viewReceipt(S.receipts.find(x => x.id === id)); break;
     case "rcAddPhoto": S.sub.rcAddTo = id; $("#rcMore").click(); break;
@@ -1507,6 +1560,14 @@ document.addEventListener("click", async e => {
       const R = S.sub.range; if (!R) throw new Error("Show the report first."); const sub = `${dmy(R.from)} to ${dmy(R.to)}`;
       const secs = [{title: "Daily totals", sheet: "Daily totals", cols: R.cols, rows: R.rows, tot: R.tot}, {title: "Credit customers", sheet: "Credit customers", cols: R.custCols, rows: R.custRows}];
       return b.dataset.f === "pdf" ? [`Sales Summary ${sub}.pdf`, tablePdf("Sales Summary", sub, secs)] : [`Sales Summary ${sub}.xlsx`, await tableXlsx("Sales Summary", sub, secs)];
+    }, b); break;
+    case "dlExp": await download(async () => {
+      const rows = S.sub.exRows; if (!rows) throw new Error("Show the expenses first."); const sub = `${dmy(S.sub.exFrom)} to ${dmy(S.sub.exTo)}`;
+      const cols = ["Date", "What for", "Category", "Paid to", "Invoice no.", "Amount", "Invoice", "Entered by"];
+      const data = rows.map(e => [dmy(e.date), e.desc, e.cat || "", e.vendor || "", e.inv || "", num(e.amount), (e.imgs || []).length ? "Yes" : "MISSING", nameOf(e.by)]);
+      const tot = ["TOTAL", "", "", "", "", r2(rows.reduce((a, e) => a + num(e.amount), 0)), "", ""];
+      const secs = [{title: "Expenses" + (S.sub.exCatF ? " · " + S.sub.exCatF : ""), sheet: "Expenses", cols, rows: data, tot, text: [1, 2, 3, 4, 6, 7]}];
+      return b.dataset.f === "pdf" ? [`Expenses ${sub}.pdf`, tablePdf("Expenses", sub, secs)] : [`Expenses ${sub}.xlsx`, await tableXlsx("Expenses", sub, secs)];
     }, b); break;
     case "dlStmt": await download(async () => {
       const M = S.sub.stmt; if (!M) throw new Error("Show the statement first."); const sub = `${dmy(M.from)} to ${dmy(M.to)}`;
@@ -1568,6 +1629,11 @@ document.addEventListener("change", async e => {
   const t = e.target;
   if (t.id === "dateIn") { setDate(t.value || todayStr()); return; }
   if (t.id === "crCust") { S.sub.crCust = t.value; crUpdate(true); return; }
+  if (t.id === "exMore") {
+    const e = model().expenses.find(x => x.id === S.sub.exAddTo); const files = [...t.files]; t.value = ""; if (!e || !files.length) return;
+    toast("Uploading…"); try { const ids = await saveImages("expenseimg", files, {expense: e.id}); await patchDay({expenses: {[e.id]: {imgs: [...(e.imgs || []), ...ids]}}}); toast("Invoice added"); } catch (er) { toast(dbErr(er)); }
+    return;
+  }
   if (t.id === "rcFiles") { $("#rcPrev").innerHTML = [...t.files].map((f, i) => `<span class="chip">Page ${i + 1}</span>`).join(""); return; }
   if (t.id === "rcMore") {
     const x = S.receipts.find(r => r.id === S.sub.rcAddTo); const files = [...t.files]; t.value = ""; if (!x || !files.length) return;
@@ -1620,7 +1686,11 @@ async function handleForm(kind, f) {
   }
   if (kind === "expense") {
     const amt = r2(num($("#exAmt").value)); if (!(amt > 0)) return toast("Enter an amount");
-    if (await patchDay({expenses: {[newId()]: {desc: $("#exDesc").value.trim(), amount: amt, by: S.me.id, at: new Date().toISOString()}}})) { f.reset(); toast("Expense added"); }
+    const files = [...$("#exFiles").files]; if (!files.length) return toast("Add a photo of the invoice or bill");
+    const id = newId(); $("#exStatus").textContent = "Uploading invoice…";
+    let imgs; try { imgs = await saveImages("expenseimg", files, {expense: id}); } catch (er) { $("#exStatus").textContent = ""; return toast(er && er.code ? dbErr(er) : "Couldn't read the photo. Try again."); }
+    await patchDay({expenses: {[id]: {desc: $("#exDesc").value.trim(), amount: amt, cat: $("#exCat").value, vendor: $("#exVen").value.trim() || null, inv: $("#exInv").value.trim() || null, imgs, by: S.me.id, at: new Date().toISOString()}}});
+    $("#exStatus").textContent = ""; f.reset(); toast("Expense added");
   }
   if (kind === "cheque") {
     const amt = r2(num($("#chAmt").value)); if (!(amt > 0)) return toast("Enter an amount");
@@ -1651,6 +1721,19 @@ async function handleForm(kind, f) {
     const from = $("#rgFrom").value, to = $("#rgTo").value; S.sub.rgFrom = from; S.sub.rgTo = to; $("#rangeOut").innerHTML = `<div class="empty">Loading…</div>`;
     try { const days = await fetchRange(from, to); const R = rangeModel(days, from, to); S.sub.range = R; S.sub.rangeHtml = rangeHtml(R); $("#rangeOut").innerHTML = S.sub.rangeHtml; }
     catch (er) { $("#rangeOut").innerHTML = `<div class="banner bad">Couldn't load this period. Try a shorter range.</div>`; }
+  }
+  if (kind === "expenses") {
+    const from = $("#exFrom").value, to = $("#exTo").value; Object.assign(S.sub, {exFrom: from, exTo: to, exCatF: $("#exCatF").value, exQ: $("#exQ").value.trim()});
+    $("#exOut").innerHTML = `<div class="empty">Loading…</div>`;
+    try {
+      const q = await S.db.collection("days").where("date", ">=", from).where("date", "<=", to).get();
+      const rows = [];
+      q.docs.forEach(d => { const x = d.data(); Object.entries(x.expenses || {}).forEach(([id, e]) => { if (e && !e.deleted) rows.push({...e, id, date: x.date}); }); });
+      const qq = S.sub.exQ.toLowerCase();
+      S.sub.exRows = rows.filter(e => (!S.sub.exCatF || e.cat === S.sub.exCatF) && (!qq || [e.desc, e.vendor, e.inv, e.cat].some(v => String(v || "").toLowerCase().includes(qq))))
+        .sort((a, b) => (a.date + a.at).localeCompare(b.date + b.at));
+      S.sub.exOut = true; renderExpensesOut();
+    } catch (er) { $("#exOut").innerHTML = `<div class="banner bad">Couldn't load expenses for this period.</div>`; }
   }
   if (kind === "statement") {
     const cid = $("#stCust").value, from = $("#stFrom").value, to = $("#stTo").value; if (!cid) return toast("Choose a customer");
