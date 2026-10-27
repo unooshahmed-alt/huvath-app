@@ -34,7 +34,11 @@ service cloud.firestore {
     match /entries/{id} {
       allow read: if anyStaff();
       allow create: if hasRole(['manager', 'cashier']) && request.resource.data.uid == request.auth.uid;
-      allow update: if hasRole(['manager']) || (hasRole(['cashier']) && resource.data.uid == request.auth.uid);
+      // Cashiers can only ADD new sales to their own day sheet, never change or remove saved ones.
+      allow update: if hasRole(['manager']) || (hasRole(['cashier']) && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['items'])
+        && resource.data.items.diff(request.resource.data.items).changedKeys().size() == 0
+        && resource.data.items.diff(request.resource.data.items).removedKeys().size() == 0);
       allow delete: if isOwner();
     }
     // Daily readings, cash count, expenses. Cashiers can't change a closed day or close/reopen it.
@@ -57,7 +61,10 @@ service cloud.firestore {
     match /receipts/{id} {
       allow read: if anyStaff();
       allow create: if hasRole(['manager', 'cashier']) && request.resource.data.by == request.auth.uid;
-      allow update: if hasRole(['manager']) || (hasRole(['cashier']) && resource.data.by == request.auth.uid);
+      // Cashiers can only add more delivery note photos to their own deliveries.
+      allow update: if hasRole(['manager']) || (hasRole(['cashier']) && resource.data.by == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['imgs'])
+        && request.resource.data.imgs.hasAll(resource.data.imgs));
       allow delete: if isOwner();
     }
     match /receiptimg/{id} {

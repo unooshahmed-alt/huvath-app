@@ -242,7 +242,7 @@ const DENOMS = [500, 100, 50, 20, 10, 5, 2, 1];
 const ROLES = {owner: "Owner", manager: "Manager", cashier: "Cashier", accountant: "Accountant"};
 const ROLE_HELP = {
   manager: "Everything except user access: sales, readings, slips, reports, customers, prices, close day.",
-  cashier: "Records sales, credit, payments, readings, expenses, cash count and slips for today. Edits own entries only.",
+  cashier: "Records today's sales, credit, payments, meter readings, stock deliveries, expenses, cash count and slips. Can't edit or delete anything once saved, and can't see reports or money totals.",
   accountant: "Views every day, verifies bank slips, downloads reports. Cannot record sales."
 };
 const CAN = {
@@ -513,9 +513,9 @@ const dayLocked = () => !!S.day.closed && !can("editAny");
 const dateLocked = () => !can("anyDate") && S.date !== todayStr();
 function canEditItem(it) {
   if (!can("sell")) return false;
-  if (can("editAny")) return true;
-  return it.by === S.me.id && S.date === todayStr() && !S.day.closed;
+  return can("editAny"); // cashiers record only; managers and the owner correct mistakes
 }
+const recordOnly = () => S.role === "cashier";
 
 /* ---------- rendering ---------- */
 const LIVE = {};
@@ -621,10 +621,10 @@ function viewToday() {
     <div class="pagehead"><div><h2>${S.date === todayStr() ? "Today" : dmy(S.date)}</h2><p>Live figures for ${dmy(S.date)} from every staff member.</p></div>
       ${can("sell") && !dateLocked() ? `<button class="btn pri" data-tab="sell">${svg(ICON.sell, 18)} Record a sale</button>` : ""}</div>
     ${dayBanner()}
-    <div class="kpis" data-live="kpis"></div>
+    ${recordOnly() ? "" : `<div class="kpis" data-live="kpis"></div>`}
     <div class="grid2">
       <div class="card"><h3>Meter check</h3><div data-live="meterCheck"></div></div>
-      <div class="card"><h3>Cash in hand</h3><div data-live="cashCheck"></div></div>
+      ${recordOnly() ? "" : `<div class="card"><h3>Cash in hand</h3><div data-live="cashCheck"></div></div>`}
     </div>
     <div class="card"><div class="row between"><h3>Latest activity</h3><span class="small muted">Updates live</span></div><div class="list" data-live="feed"></div></div>
   </div>`;
@@ -791,12 +791,13 @@ function crUpdate(fromCustomer) {
 /* --- DAY / READINGS --- */
 function viewDay() {
   const locked = dayLocked() || dateLocked();
+  const lockNote = recordOnly() ? `<div class="banner">Each box locks once you save it. If you make a mistake, ask a manager to correct it.</div>` : "";
   const dis = locked ? "disabled" : "";
   const s = st();
   return `<div class="stack">
     <div class="pagehead"><div><h2>Readings &amp; cash · ${dmy(S.date)}</h2><p>Start and end meter readings give the true litres sold. Values save when you leave a box.</p></div>
       ${can("closeDay") ? `<button class="btn ${S.day.closed ? "" : "pri"}" data-act="toggleClose">${S.day.closed ? "Reopen day" : "Close day"}</button>` : ""}</div>
-    ${dayBanner()}
+    ${dayBanner()}${lockNote}
     <div class="grid2">${s.meters.map(m => `<div class="card"><div class="row between"><h3>${esc(m.name)}</h3><span class="pill ${m.fuel}">${FUEL[m.fuel]}</span></div>
       <div class="meter" style="margin-top:8px"><label class="f">Start reading<input class="in" inputmode="decimal" data-bind="meters.${m.id}.start" ${dis}></label><label class="f">End reading<input class="in" inputmode="decimal" data-bind="meters.${m.id}.end" ${dis}></label></div>
       <div class="mstat" data-live="meter" data-id="${esc(m.id)}"></div></div>`).join("")}</div>
@@ -813,7 +814,7 @@ function viewDay() {
     </div>
     <div class="card stack"><h3>Cash count</h3><p class="small muted" style="margin:0">Count of each note in the drawer at closing.</p>
       <div class="denoms">${DENOMS.map(d => `<label><span>${d} ×</span><input class="in num" inputmode="numeric" data-bind="cash.${d}" ${dis}></label>`).join("")}<label><span>Coins</span><input class="in num" inputmode="decimal" placeholder="MVR" data-bind="cash.coins" ${dis}></label></div>
-      <div data-live="cashCheck"></div></div>
+      ${recordOnly() ? `<p class="small muted" style="margin:0">Count carefully. A manager checks it against the sales.</p>` : `<div data-live="cashCheck"></div>`}</div>
     <div class="card"><label class="f">Notes for this day<textarea class="in" data-bind="notes" ${dis}></textarea></label></div>
   </div>`;
 }
@@ -827,13 +828,13 @@ LIVE.tank = el => { const t = model().tanks.find(x => x.id === el.dataset.id); r
 LIVE.expList = () => {
   const m = model(); const ed = !dayLocked() && !dateLocked();
   if (!m.expenses.length) return `<div class="empty">No expenses for this day.</div>`;
-  return m.expenses.map(e => `<div class="li"><span class="dot"></span><div class="main"><b>${esc(e.desc)}</b><div class="small muted">${hm(e.at)} · ${esc(nameOf(e.by))}</div></div><div class="amt">${n2(e.amount)}</div>${ed && (can("editAny") || e.by === S.me.id) ? `<div class="acts"><button class="btn sm danger" data-act="delExp" data-id="${e.id}">Delete</button></div>` : ""}</div>`).join("") +
+  return m.expenses.map(e => `<div class="li"><span class="dot"></span><div class="main"><b>${esc(e.desc)}</b><div class="small muted">${hm(e.at)} · ${esc(nameOf(e.by))}</div></div><div class="amt">${n2(e.amount)}</div>${ed && can("editAny") ? `<div class="acts"><button class="btn sm danger" data-act="delExp" data-id="${e.id}">Delete</button></div>` : ""}</div>`).join("") +
     `<div class="row between" style="padding-top:8px;font-weight:700"><span>Total</span><span class="num">${n2(m.expTotal)}</span></div>`;
 };
 LIVE.chqList = () => {
   const m = model(); const ed = !dayLocked() && !dateLocked();
   if (!m.cheques.length) return `<div class="empty">No cheques.</div>`;
-  return m.cheques.map(c => `<div class="li"><span class="dot"></span><div class="main"><b>${esc(c.no)}</b></div><div class="amt">${n2(c.amount)}</div>${ed ? `<div class="acts"><button class="btn sm danger" data-act="delChq" data-id="${c.id}">Delete</button></div>` : ""}</div>`).join("");
+  return m.cheques.map(c => `<div class="li"><span class="dot"></span><div class="main"><b>${esc(c.no)}</b></div><div class="amt">${n2(c.amount)}</div>${ed && can("editAny") ? `<div class="acts"><button class="btn sm danger" data-act="delChq" data-id="${c.id}">Delete</button></div>` : ""}</div>`).join("");
 };
 function getPath(o, p) { return p.split(".").reduce((a, k) => a == null ? undefined : a[k], o); }
 function syncBinds() {
@@ -842,6 +843,7 @@ function syncBinds() {
     if (el === document.activeElement) return;
     const v = getPath(S.day, el.dataset.bind);
     el.value = v == null ? "" : v;
+    if (recordOnly() && el.dataset.bind !== "notes") { const saved = v != null && v !== ""; if (saved) { el.disabled = true; el.title = "Saved. Ask a manager to change it."; } }
     if (m) {
       const [kind, id, k] = el.dataset.bind.split(".");
       if (kind === "meters" && k === "start") { const mt = m.meters.find(x => x.id === id); el.placeholder = mt && mt.startFromPrev ? String(mt.start) : "0"; }

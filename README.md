@@ -47,7 +47,7 @@ After a minute the site is live at `https://YOUR-GITHUB-NAME.github.io/REPO-NAME
 |---|---|
 | Owner | Everything, including who has access |
 | Manager | All sales, readings, slips, reports, customers, prices; close/reopen a day; edit or delete any entry |
-| Cashier | Record today's sales, credit, payments, readings, expenses, cash count and slips; edit own entries |
+| Cashier | Record today's sales, credit, payments, meter readings, stock deliveries, expenses, cash count and slips. Can't edit or delete anything once saved, and can't see reports or money totals |
 | Accountant | View any day, approve/reject slips, download reports. Can't record sales |
 
 ## Install on a phone
